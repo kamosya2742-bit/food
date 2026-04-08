@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Nutrition</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="smart-nutrition-simple.js"></script>
+
+    <style>
+        /* ══════════════════════════════════════════════════
+           DESIGN TOKENS — тёмная тема
+        ══════════════════════════════════════════════════ */
+        :root {
+            --bg:        #0f1117;
+            --surface:   #1a1d27;
+            --surface2:  #222636;
+            --border:    #2e3347;
+            --text:      #e8eaf0;
+            --text-2:    #9ca3b0;
+            --text-3:    #6b7280;
+
+            --accent:    #6366f1;      /* indigo */
+            --accent-h:  #818cf8;
+            --accent-bg: rgba(99,102,241,.12);
+
+            --green:     #22c55e;
+            --green-bg:  rgba(34,197,94,.12);
+            --yellow:    #f59e0b;
+            --yellow-bg: rgba(245,158,11,.12);
+            --red:       #ef4444;
+            --red-bg:    rgba(239,68,68,.12);
+            --blue:      #38bdf8;
+            --blue-bg:   rgba(56,189,248,.12);
+
+            --r: 12px;
+            --r-sm: 8px;
+        }
+
+        /* ══════════════════════════════════════════════════
+           СВЕТЛАЯ ТЕМА — хороший контраст, не сливается
+        ══════════════════════════════════════════════════ */
+        [data-theme="light"] {
+            --bg:        #f1f3f9;
+            --surface:   #ffffff;
+            --surface2:  #eef0f8;
+            --border:    #d1d5e8;
+            --text:      #111827;
+            --text-2:    #374151;
+            --text-3:    #6b7280;
+
+            --accent:    #4f46e5;
+            --accent-h:  #6366f1;
+            --accent-bg: rgba(79,70,229,.1);
+
+            --green:     #16a34a;
+            --green-bg:  rgba(22,163,74,.1);
+            --yellow:    #d97706;
+            --yellow-bg: rgba(217,119,6,.1);
+            --red:       #dc2626;
+            --red-bg:    rgba(220,38,38,.1);
+            --blue:      #0284c7;
+            --blue-bg:   rgba(2,132,199,.1);
+        }
+
+        /* ── BASE ─────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── CARDS ────────────────────────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.25rem;
+        }
+        .card-inner {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: .75rem 1rem;
+        }
+
+        /* ── BUTTONS ──────────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            font-size: .875rem; font-weight: 600; border: none; cursor: pointer;
+            border-radius: var(--r-sm); padding: .6rem 1.1rem;
+            transition: opacity .15s, transform .15s, box-shadow .15s;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover { background: var(--accent-h); box-shadow: 0 0 0 3px var(--accent-bg); }
+        .btn-ghost {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-full { width: 100%; }
+
+        /* ── INPUTS ───────────────────────────────────────── */
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field label { font-size: .75rem; font-weight: 600; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
+        input, select, textarea {
+            font-family: inherit;
+            background: var(--surface2);
+            border: 1.5px solid var(--border);
+            color: var(--text);
+            border-radius: var(--r-sm);
+            padding: .65rem .9rem;
+            font-size: .9rem;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            width: 100%;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+        select option { background: var(--surface); color: var(--text); }
+
+        /* ── HEADER / NAV ─────────────────────────────────── */
+        .app-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: .8rem 1.1rem;
+            position: sticky; top: 0; z-index: 40;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .app-logo {
+            font-size: 1.05rem; font-weight: 700; color: var(--accent);
+            letter-spacing: -.01em;
+        }
+        .app-nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            position: sticky; top: 57px; z-index: 30;
+        }
+        .nav-btn {
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: .55rem .25rem; background: none; border: none; cursor: pointer;
+            color: var(--text-3); font-size: .68rem; font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: color .2s, border-color .2s;
+        }
+        .nav-btn svg { width: 18px; height: 18px; }
+        .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* ── PROGRESS ─────────────────────────────────────── */
+        .prog-track {
+            background: var(--surface2); border-radius: 99px; height: 8px; overflow: hidden;
+        }
+        .prog-fill {
+            height: 100%; border-radius: 99px; background: var(--accent);
+            transition: width .6s cubic-bezier(.4,0,.2,1);
+        }
+        .prog-fill.over { background: linear-gradient(90deg, var(--red), var(--yellow)); }
+
+        /* ── MACROS ───────────────────────────────────────── */
+        .macro-row { display: flex; gap: .65rem; }
+        .macro-pill {
+            flex: 1; text-align: center;
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: var(--r-sm); padding: .6rem .4rem;
+        }
+        .macro-val { font-size: 1.1rem; font-weight: 700; }
+        .macro-lbl { font-size: .65rem; color: var(--text-3); margin-top: 2px; text-transform: uppercase; letter-spacing: .04em; }
+
+        /* ── MEAL ROW ─────────────────────────────────────── */
+        .meal-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: var(--r-sm); padding: .7rem .9rem;
+            transition: border-color .2s;
+        }
+        .meal-row:hover { border-color: var(--accent); }
+        .meal-del {
+            opacity: 0; background: none; border: none; cursor: pointer;
+            color: var(--red); padding: 3px; border-radius: 5px;
+            transition: opacity .2s;
+        }
+        .meal-row:hover .meal-del { opacity: 1; }
+
+        /* ── PLAN BLOCKS ──────────────────────────────────── */
+        .plan-block {
+            border-left: 3px solid var(--accent);
+            padding: .6rem 0 .6rem .9rem;
+        }
+
+        /* ── AUTH ─────────────────────────────────────────── */
+        .auth-wrap {
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: center; padding: 1.25rem;
+        }
+        .auth-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 2rem 1.75rem;
+            width: 100%; max-width: 400px;
+            animation: fadeUp .3s ease;
+        }
+        .auth-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            background: var(--accent); display: flex; align-items: center;
+            justify-content: center; margin: 0 auto 1.1rem;
+        }
+        .auth-icon svg { width: 24px; height: 24px; color: #fff; }
+        .auth-tabs {
+            display: flex; gap: 3px; background: var(--surface2);
+            border: 1px solid var(--border); border-radius: var(--r-sm);
+            padding: 3px; margin-bottom: 1.25rem;
+        }
+        .auth-tab {
+            flex: 1; padding: .45rem; background: none; border: none; cursor: pointer;
+            font-size: .875rem; font-weight: 600; color: var(--text-3);
+            border-radius: 6px; transition: all .2s;
+        }
+        .auth-tab.active { background: var(--accent); color: #fff; }
+
+        /* ── MODAL ────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.6);
+            backdrop-filter: blur(4px); z-index: 50;
+            display: flex; align-items: center; justify-content: center; padding: 1.25rem;
+            animation: fadeIn .2s ease;
+        }
+        .modal-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 1.5rem;
+            width: 100%; max-width: 420px; animation: fadeUp .25s ease;
+        }
+
+        /* ── TOASTS ───────────────────────────────────────── */
+        #toastContainer {
+            position: fixed; top: 1rem; right: 1rem; z-index: 100;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .toast {
+            padding: .6rem 1rem; border-radius: var(--r-sm);
+            font-size: .875rem; font-weight: 500; max-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.3); animation: slideIn .3s ease;
+        }
+        .toast-success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
+        .toast-error   { background: var(--red-bg);   border: 1px solid var(--red);   color: var(--red); }
+        .toast-info    { background: var(--accent-bg); border: 1px solid var(--accent); color: var(--accent-h); }
+
+        /* ── UPLOAD ZONE ──────────────────────────────────── */
+        .upload-zone {
+            border: 2px dashed var(--border); border-radius: var(--r);
+            padding: 2rem 1rem; text-align: center; cursor: pointer;
+            transition: border-color .2s, background .2s;
+        }
+        .upload-zone:hover { border-color: var(--accent); background: var(--accent-bg); }
+        .upload-zone svg { width: 36px; height: 36px; color: var(--text-3); margin: 0 auto .6rem; display: block; }
+
+        /* ── EMPTY STATE ──────────────────────────────────── */
+        .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-3); }
+        .empty-state svg { width: 40px; height: 40px; margin: 0 auto .75rem; display: block; opacity: .4; }
+
+        /* ── SECTION TITLE ────────────────────────────────── */
+        .section-title { font-size: 1.35rem; font-weight: 700; letter-spacing: -.015em; }
+
+        /* ── BADGE ────────────────────────────────────────── */
+        .badge {
+            display: inline-block; padding: 1px 7px; border-radius: 99px;
+            font-size: .7rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: .04em;
+            background: var(--surface2); color: var(--text-3); border: 1px solid var(--border);
+        }
+
+        /* ── UTILS ────────────────────────────────────────── */
+        .space-y > * + * { margin-top: .85rem; }
+        .space-y-sm > * + * { margin-top: .5rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .65rem; }
+        .flex-between { display: flex; align-items: center; justify-content: space-between; }
+        .flex-center  { display: flex; align-items: center; gap: .5rem; }
+
+        .c-green  { color: var(--green); }
+        .c-yellow { color: var(--yellow); }
+        .c-red    { color: var(--red); }
+        .c-blue   { color: var(--blue); }
+        .c-accent { color: var(--accent-h); }
+        .c-2      { color: var(--text-2); }
+        .c-3      { color: var(--text-3); }
+
+        /* ── ANIMATIONS ───────────────────────────────────── */
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+        @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+        @keyframes slideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
+        @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+
+        main { padding: 1rem; padding-bottom: 5rem; max-width: 600px; margin: 0 auto; }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════════════════
+     AUTH
+══════════════════════════════════════════════════ -->
+<div id="authScreen" class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-icon"><i data-lucide="leaf"></i></div>
+        <h2 style="text-align:center;font-size:1.25rem;font-weight:700;margin-bottom:.25rem;">Smart Nutrition</h2>
+        <p style="text-align:center;font-size:.85rem;color:var(--text-3);margin-bottom:1.5rem;">Умный контроль питания</p>
+
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="loginBtn" onclick="switchAuthMode('login')">Войти</button>
+            <button class="auth-tab" id="registerBtn" onclick="switchAuthMode('register')">Регистрация</button>
+        </div>
+
+        <form id="authForm" class="space-y">
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="email" required placeholder="you@example.com">
+            </div>
+            <div class="field">
+                <label>Пароль</label>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
+
+            <div id="registerFields" class="space-y" style="display:none;">
+                <div class="field"><label>Имя</label><input type="text" id="name" placeholder="Ваше имя"></div>
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Пол</label>
+                        <select id="gender">
+                            <option value="male">Мужской</option>
+                            <option value="female">Женский</option>
+                            <option value="other">Другой</option>
+                        </select>
+                    </div>
+                    <div class="field"><label>Дата рождения</label><input type="date" id="birthDate"></div>
+                </div>
+                <div class="grid-2">
+                    <div class="field"><label>Рост (см)</label><input type="number" id="height" min="100" max="250" placeholder="175"></div>
+                    <div class="field"><label>Вес (кг)</label><input type="number" id="weight" min="30" max="300" placeholder="70"></div>
+                </div>
+                <div class="field"><label>Цель калорий / день</label><input type="number" id="calorieGoal" min="800" max="5000" value="2000"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full" style="margin-top:.5rem;">
+                <span id="submitBtnText">Войти</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════════ -->
+<div id="mainApp" style="display:none;">
+
+    <header class="app-header">
+        <span class="app-logo">Smart Nutrition</span>
+        <div class="flex-center">
+            <span id="userNameDisplay" style="font-size:.8rem;color:var(--text-3);"></span>
+            <button onclick="logout()" class="btn btn-ghost" style="padding:.4rem .6rem;">
+                <i data-lucide="log-out" style="width:15px;height:15px;"></i>
+            </button>
+        </div>
+    </header>
+
+    <nav class="app-nav">
+        <button class="nav-btn" data-tab="home" onclick="showTab('home')">
+            <i data-lucide="home"></i>Главная
+        </button>
+        <button class="nav-btn" data-tab="add" onclick="showTab('add')">
+            <i data-lucide="plus-circle"></i>Добавить
+        </button>
+        <button class="nav-btn" data-tab="plan" onclick="showTab('plan')">
+            <i data-lucide="calendar"></i>План
+        </button>
+        <button class="nav-btn" data-tab="profile" onclick="showTab('profile')">
+            <i data-lucide="user"></i>Профиль
+        </button>
+    </nav>
+
+    <main id="mainContent"></main>
+</div>
+
+<script>
+// ── TOAST ───────────────────────────────────────────────────────
+window.showToast = (msg, type = 'info') => {
+    const c = document.getElementById('toastContainer');
+    if (!c) return;
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => {
+        t.style.cssText += ';opacity:0;transform:translateX(110%);transition:all .35s';
+        setTimeout(() => t.remove(), 360);
+    }, 3200);
+};
+
+// ── INIT ─────────────────────────────────────────────────────────
+let currentTab = 'home';
+let authMode   = 'login';
+
+document.addEventListener('DOMContentLoaded', async () => {
+    lucide.createIcons();
+    const has = window.simpleState.checkLocalSession();
+    if (has) {
+        await Promise.allSettled([
+            window.simpleState.loadMedicalInfo(),
+            window.simpleState.loadMeals(),
+            window.simpleState.loadMealPlans(),
+            window.simpleState.loadWeightProgress()
+        ]);
+        showMainApp();
+    } else {
+        showAuthScreen();
+    }
+});
+
+// ── AUTH ──────────────────────────────────────────────────────────
+function switchAuthMode(mode) {
+    authMode = mode;
+    const isLogin = mode === 'login';
+    document.getElementById('loginBtn').classList.toggle('active', isLogin);
+    document.getElementById('registerBtn').classList.toggle('active', !isLogin);
+    document.getElementById('registerFields').style.display = isLogin ? 'none' : 'flex';
+    document.getElementById('registerFields').style.flexDirection = isLogin ? '' : 'column';
+    document.getElementById('submitBtnText').textContent = isLogin ? 'Войти' : 'Зарегистрироваться';
+}
+
+function showAuthScreen() {
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('mainApp').style.display    = 'none';
+    requestAnimationFrame(() => lucide.createIcons());
+}
+
+function showMainApp() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display    = 'block';
+    document.getElementById('userNameDisplay').textContent = window.simpleState.userData?.name || '';
+    showTab('home');
+}
+
+document.getElementById('authForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn  = document.querySelector('#authForm button[type="submit"]');
+    const span = document.getElementById('submitBtnText');
+    btn.disabled = true; span.textContent = '…';
+
+    try {
+        const email    = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        let result;
+        if (authMode === 'login') {
+            result = await window.simpleState.login(email, password);
+        } else {
+            result = await window.simpleState.register({
+                email, password,
+                name:        document.getElementById('name').value.trim(),
+                gender:      document.getElementById('gender').value,
+                birthDate:   document.getElementById('birthDate').value,
+                height:      parseFloat(document.getElementById('height').value) || null,
+                weight:      parseFloat(document.getElementById('weight').value) || null,
+                calorieGoal: parseInt(document.getElementById('calorieGoal').value) || 2000
+            });
+        }
+        if (result.success) {
+            showToast(authMode === 'login' ? 'Добро пожаловать!' : 'Регистрация успешна!', 'success');
+            showMainApp();
+        } else {
+            showToast(result.error || 'Ошибка', 'error');
+        }
+    } catch (err) {
+        showToast('Ошибка: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        span.textContent = authMode === 'login' ? 'Войти' : 'Зарегистрироваться';
+    }
+});
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    const c = document.getElementById('mainContent');
+    c.innerHTML = '';
+    c.style.animation = 'none';
+    requestAnimationFrame(() => { c.style.animation = 'fadeUp .25s ease'; });
+    ({ home: showHome, add: showAddMeal, plan: showMealPlan, profile: showProfile }[tab])(c);
+    requestAnimationFrame(() => lucide.createIcons());
+}
+
+// ── HOME ───────────────────────────────────────────────────────────
+function showHome(c) {
+    const stats    = window.simpleState.getTodayStats();
+    const meals    = window.simpleState.getTodayMeals();
+    const user     = window.simpleState.userData;
+    const goal     = user?.daily_calorie_goal || 2000;
+    const pct      = Math.min((stats.calories / goal) * 100, 100).toFixed(1);
+    const over     = stats.calories > goal;
+    const trend    = window.simpleState.getWeightTrend();
+    const dateStr  = new Date().toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' });
+
+    c.innerHTML = `
+    <div class="space-y">
+        <!-- Greeting -->
+        <div class="card">
+            <div class="flex-between">
+                <div>
+                    <p style="font-size:.75rem;color:var(--text-3);text-transform:capitalize;margin-bottom:2px;">${dateStr}</p>
+                    <h2 style="font-size:1.3rem;font-weight:700;">Привет, ${user?.name || 'друг'}! 👋</h2>
+                    ${trend ? `<p style="font-size:.8rem;margin-top:5px;color:${trend.trend==='down'?'var(--green)':trend.trend==='up'?'var(--red)':'var(--text-3)'};">
+                        ${trend.trend==='down'?'↓ Вес снижается':trend.trend==='up'?'↑ Вес растёт':'→ Вес стабилен'}: ${trend.change>0?'+':''}${trend.change.toFixed(1)} кг за 7 дней
+                    </p>` : ''}
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:1.75rem;font-weight:700;color:${over?'var(--red)':'var(--accent-h)'};">${Math.round(stats.calories)}</div>
+                    <div style="font-size:.7rem;color:var(--text-3);">из ${goal} ккал</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="card">
+            <div class="flex-between" style="margin-bottom:.65rem;">
+                <span style="font-size:.9rem;font-weight:600;">Дневной прогресс</span>
+                <span style="font-size:.8rem;color:${over?'var(--red)':'var(--green)'};">
+                    ${over ? `+${Math.round(stats.calories-goal)} ккал превышение` : `ещё ${Math.round(goal-stats.calories)} ккал`}
+                </span>
+            </div>
+            <div class="prog-track">
+                <div class="prog-fill ${over?'over':''}" style="width:${pct}%"></div>
+            </div>
+            <div class="macro-row" style="margin-top:.85rem;">
+                <div class="macro-pill">
+                    <div class="macro-val c-green">${Math.round(stats.protein)}г</div>
+                    <div class="macro-lbl">Белки</div>
+                </div>
+                <div class="macro-pill">
+                    <div class="macro-val c-yellow">${Math.round(stats.fat)}г</div>
+                    <div class="macro-lbl">Жиры</div>
+                </div>
+                <div class="macro-pill">
+                    <div class="macro-val c-blue">${Math.round(stats.carbs)}г</div>
+                    <div class="macro-lbl">Углеводы</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Meals -->
+        ${meals.length > 0 ? `
+        <div class="card">
+            <div class="flex-between" style="margin-bottom:.85rem;">
+                <span style="font-size:.9rem;font-weight:600;">Сегодня</span>
+                <span class="badge">${meals.length} записей</span>
+            </div>
+            <div class="space-y-sm">
+                ${meals.map(m => `
+                <div class="meal-row">
+                    <div>
+                        <div style="font-size:.9rem;font-weight:500;">${m.name}</div>
+                        <div style="font-size:.775rem;color:var(--text-3);margin-top:2px;">${Math.round(m.calories)} ккал · <span class="badge">${m.category||'другое'}</span></div>
+                    </div>
+                    <button class="meal-del" onclick="deleteMealAndRefresh('${m.id}')">
+                        <i data-lucide="x" style="width:14px;height:14px;"></i>
+                    </button>
+                </div>`).join('')}
+            </div>
+        </div>` : `
+        <div class="card empty-state">
+            <i data-lucide="utensils"></i>
+            <p style="margin-bottom:.85rem;font-weight:500;">Нет записей за сегодня</p>
+            <button class="btn btn-primary" onclick="showTab('add')">Добавить приём</button>
+        </div>`}
+    </div>`;
+}
+
+async function deleteMealAndRefresh(id) {
+    await window.deleteMeal(id);
+    if (currentTab === 'home') showTab('home');
+}
+
+// ── ADD MEAL ───────────────────────────────────────────────────────
+function showAddMeal(c) {
+    c.innerHTML = `
+    <div class="space-y">
+        <div class="card">
+            <h2 class="section-title" style="margin-bottom:1rem;">Новый приём пищи</h2>
+            <form id="mealForm" class="space-y">
+                <div class="field">
+                    <label>Название блюда</label>
+                    <input type="text" id="mealName" required placeholder="Напр. Овсянка с ягодами">
+                </div>
+                <div class="field">
+                    <label>Категория</label>
+                    <select id="mealCategory">
+                        <option value="breakfast">Завтрак</option>
+                        <option value="lunch">Обед</option>
+                        <option value="dinner">Ужин</option>
+                        <option value="snack">Перекус</option>
+                    </select>
+                </div>
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Калории (ккал)</label>
+                        <input type="number" id="mealCalories" required min="0" placeholder="0" oninput="updateCaloriePreview()">
+                    </div>
+                    <div class="field">
+                        <label>Вес (г)</label>
+                        <input type="number" id="mealWeight" min="0" placeholder="0">
+                    </div>
+                </div>
+                <div id="caloriePreview" style="display:none;padding:.65rem .9rem;background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r-sm);font-size:.85rem;text-align:center;">
+                    После добавления: <strong id="previewTotal"></strong> / <span id="previewGoal" class="c-3"></span> ккал
+                </div>
+                <div class="grid-3">
+                    <div class="field"><label>Белки (г)</label><input type="number" id="mealProtein" required min="0" step="0.1" placeholder="0"></div>
+                    <div class="field"><label>Жиры (г)</label><input type="number" id="mealFat" required min="0" step="0.1" placeholder="0"></div>
+                    <div class="field"><label>Углеводы (г)</label><input type="number" id="mealCarbs" required min="0" step="0.1" placeholder="0"></div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <i data-lucide="plus" style="width:15px;height:15px;"></i>
+                    <span id="submitMealText">Добавить приём</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- AI photo -->
+        <div class="card">
+            <h3 style="font-size:.95rem;font-weight:600;margin-bottom:.85rem;">
+                <span class="c-accent">AI</span> Анализ фото
+            </h3>
+            <div class="upload-zone" onclick="document.getElementById('imageInput').click()">
+                <i data-lucide="camera"></i>
+                <p style="font-weight:500;margin-bottom:4px;">Сфотографируйте блюдо</p>
+                <p style="font-size:.8rem;color:var(--text-3);">AI определит калории автоматически</p>
+            </div>
+            <input type="file" id="imageInput" accept="image/*" style="display:none;">
+            <div id="aiPreview" style="display:none;margin-top:.75rem;"></div>
+        </div>
+    </div>`;
+
+    document.getElementById('mealForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn  = document.querySelector('#mealForm button[type="submit"]');
+        const span = document.getElementById('submitMealText');
+        btn.disabled = true; span.textContent = 'Сохраняем…';
+
+        const mealData = {
+            name:      document.getElementById('mealName').value.trim(),
+            category:  document.getElementById('mealCategory').value,
+            calories:  parseFloat(document.getElementById('mealCalories').value) || 0,
+            weight:    parseFloat(document.getElementById('mealWeight').value)   || null,
+            protein:   parseFloat(document.getElementById('mealProtein').value)  || 0,
+            fat:       parseFloat(document.getElementById('mealFat').value)      || 0,
+            carbs:     parseFloat(document.getElementById('mealCarbs').value)    || 0,
+            meal_date: new Date().toISOString().split('T')[0],
+            meal_time: new Date().toTimeString().substring(0, 5),
+            source:    'manual'
+        };
+
+        const r = await window.addMeal(mealData);
+        if (r.success) showTab('home');
+        else { btn.disabled = false; span.textContent = 'Добавить приём'; }
+    });
+
+    document.getElementById('imageInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const prev = document.getElementById('aiPreview');
+        prev.style.display = 'block';
+        prev.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:1rem;font-size:.875rem;">🤖 Анализирую изображение…</div>`;
+
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const result = await window.simpleAI.analyzeImage(
+                    ev.target.result.split(',')[1],
+                    window.simpleState.medicalInfo
+                );
+                if (result.error) {
+                    prev.innerHTML = `<div style="padding:.65rem .9rem;background:var(--red-bg);border:1px solid var(--red);border-radius:var(--r-sm);font-size:.85rem;color:var(--red);">❌ ${result.error}</div>`;
+                    return;
+                }
+                document.getElementById('mealName').value     = result.name     || '';
+                document.getElementById('mealCalories').value = result.calories  || 0;
+                document.getElementById('mealWeight').value   = result.weight    || '';
+                document.getElementById('mealProtein').value  = result.protein   || 0;
+                document.getElementById('mealFat').value      = result.fat       || 0;
+                document.getElementById('mealCarbs').value    = result.carbs     || 0;
+                if (result.category) document.getElementById('mealCategory').value = result.category;
+                updateCaloriePreview();
+                prev.innerHTML = `<div style="padding:.65rem .9rem;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r-sm);font-size:.85rem;color:var(--green);">
+                    ✅ Распознано: <strong>${result.name}</strong> — ${result.calories} ккал
+                    ${result.warnings?.length ? `<div style="margin-top:5px;color:var(--yellow);">⚠️ ${result.warnings.join('. ')}</div>` : ''}
+                </div>`;
+                showToast('Данные из фото заполнены', 'success');
+            } catch (err) {
+                prev.innerHTML = `<div style="padding:.65rem .9rem;background:var(--red-bg);border:1px solid var(--red);border-radius:var(--r-sm);font-size:.85rem;color:var(--red);">❌ Ошибка анализа: ${err.message}</div>`;
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function updateCaloriePreview() {
+    const cal  = parseFloat(document.getElementById('mealCalories')?.value) || 0;
+    const prev = document.getElementById('caloriePreview');
+    if (!prev) return;
+    if (!cal) { prev.style.display = 'none'; return; }
+    const cur  = window.simpleState.getTodayStats().calories;
+    const goal = window.simpleState.userData?.daily_calorie_goal || 2000;
+    const tot  = cur + cal;
+    prev.style.display = 'block';
+    const span = document.getElementById('previewTotal');
+    span.textContent = Math.round(tot);
+    span.style.color = tot > goal ? 'var(--red)' : 'var(--accent-h)';
+    document.getElementById('previewGoal').textContent = goal;
+}
+
+// ── PLAN ───────────────────────────────────────────────────────────
+function showMealPlan(c) {
+    const today = new Date().toISOString().split('T')[0];
+    const plan  = window.simpleState.getMealPlanForDate(today);
+
+    const colors = { breakfast:'var(--accent)', lunch:'var(--blue)', dinner:'var(--green)', snack:'var(--yellow)' };
+    const labels = { breakfast:'Завтрак', lunch:'Обед', dinner:'Ужин', snack:'Перекус' };
+
+    const block = (key) => plan?.[`${key}_name`] ? `
+        <div style="border-left:3px solid ${colors[key]};padding:.6rem 0 .6rem .9rem;">
+            <div style="font-size:.7rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">${labels[key]}</div>
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:3px;">${plan[`${key}_name`]}</div>
+            <div style="font-size:.775rem;color:var(--text-3);">
+                ${Math.round(plan[`${key}_calories`])} ккал ·
+                Б ${Math.round(plan[`${key}_protein`])}г ·
+                Ж ${Math.round(plan[`${key}_fat`])}г ·
+                У ${Math.round(plan[`${key}_carbs`])}г
+            </div>
+        </div>` : '';
+
+    c.innerHTML = `
+    <div class="space-y">
+        <div class="flex-between">
+            <h2 class="section-title">План питания</h2>
+            <button class="btn btn-primary" onclick="generateNewPlan()" id="genBtn">
+                <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
+                Сгенерировать
+            </button>
+        </div>
+
+        <div class="card">
+            <div style="font-size:.75rem;color:var(--text-3);margin-bottom:1rem;">${new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
+            ${plan ? `
+                <div class="space-y-sm">
+                    ${block('breakfast')}${block('lunch')}${block('dinner')}${block('snack')}
+                </div>
+
+                <!-- Totals -->
+                <div style="margin-top:1rem;padding:.85rem;background:var(--surface2);border-radius:var(--r-sm);text-align:center;">
+                    <div style="font-size:1.7rem;font-weight:700;color:var(--accent-h);">${Math.round(plan.total_calories)}</div>
+                    <div style="font-size:.7rem;color:var(--text-3);margin-bottom:.65rem;text-transform:uppercase;letter-spacing:.04em;">итого ккал</div>
+                    <div class="macro-row">
+                        <div class="macro-pill"><div class="macro-val c-green">${Math.round(plan.total_protein)}г</div><div class="macro-lbl">Белки</div></div>
+                        <div class="macro-pill"><div class="macro-val c-yellow">${Math.round(plan.total_fat)}г</div><div class="macro-lbl">Жиры</div></div>
+                        <div class="macro-pill"><div class="macro-val c-blue">${Math.round(plan.total_carbs)}г</div><div class="macro-lbl">Углеводы</div></div>
+                    </div>
+                </div>
+
+                ${plan.ai_recommendations ? `
+                <div style="margin-top:.85rem;padding:.85rem;background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r-sm);">
+                    <div style="font-size:.7rem;font-weight:700;color:var(--accent-h);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;">Рекомендации</div>
+                    <div style="font-size:.85rem;color:var(--text-2);line-height:1.6;">
+                        ${plan.ai_recommendations.split('\n').filter(Boolean).map(line => `<div style="margin-bottom:4px;">• ${line.replace(/^[•\-]\s*/,'')}</div>`).join('')}
+                    </div>
+                </div>` : ''}
+            ` : `
+            <div class="empty-state">
+                <i data-lucide="calendar-x"></i>
+                <p style="margin-bottom:.85rem;font-weight:500;">План на сегодня ещё не создан</p>
+                <button class="btn btn-primary" onclick="generateNewPlan()">
+                    <i data-lucide="sparkles" style="width:14px;height:14px;"></i>
+                    Сгенерировать план
+                </button>
+            </div>`}
+        </div>
+    </div>`;
+}
+
+// ── PROFILE ────────────────────────────────────────────────────────
+function showProfile(c) {
+    const user   = window.simpleState.userData;
+    const med    = window.simpleState.medicalInfo;
+
+    c.innerHTML = `
+    <div class="space-y">
+        <h2 class="section-title">Профиль</h2>
+
+        <div class="card">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:.85rem;">Личные данные</div>
+            <div class="grid-2" style="margin-bottom:.65rem;">
+                <div class="field"><label>Вес (кг)</label><input type="number" id="profileWeight" value="${user?.weight||''}"></div>
+                <div class="field"><label>Цель калорий / день</label><input type="number" id="profileCalories" value="${user?.daily_calorie_goal||2000}"></div>
+            </div>
+            <p style="font-size:.75rem;color:var(--text-3);margin-bottom:.65rem;">При изменении веса он запишется в историю прогресса</p>
+            <button class="btn btn-primary btn-full" onclick="updateProfile()">Сохранить изменения</button>
+        </div>
+
+        <div class="card">
+            <div class="flex-between" style="margin-bottom:.85rem;">
+                <div style="font-size:.9rem;font-weight:600;">Медицинские данные</div>
+                <button class="btn btn-ghost" onclick="showAddMedicalForm()" style="padding:.35rem .75rem;font-size:.8rem;">
+                    <i data-lucide="plus" style="width:13px;height:13px;"></i> Добавить
+                </button>
+            </div>
+            <div class="space-y-sm">
+                ${med.length > 0 ? med.map(info => `
+                <div class="card-inner flex-between">
+                    <div>
+                        <div style="font-size:.875rem;font-weight:500;">${info.name}</div>
+                        <div style="font-size:.75rem;color:var(--text-3);margin-top:2px;"><span class="badge">${info.info_type}</span> <span class="badge">${info.severity}</span></div>
+                    </div>
+                    <button onclick="deleteMedicalInfo('${info.id}')" class="btn" style="background:var(--red-bg);color:var(--red);padding:.35rem .55rem;">
+                        <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                    </button>
+                </div>`).join('') : `<p style="font-size:.875rem;color:var(--text-3);">Нет медицинских данных</p>`}
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:.85rem;">Настройки</div>
+            <div class="flex-between">
+                <span style="font-size:.875rem;">Тема</span>
+                <select onchange="changeTheme(this.value)" style="width:auto;">
+                    <option value="dark"  ${window.simpleState.currentTheme==='dark'  ?'selected':''}>Тёмная</option>
+                    <option value="light" ${window.simpleState.currentTheme==='light' ?'selected':''}>Светлая</option>
+                </select>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ── GENERATE PLAN ─────────────────────────────────────────────────
+async function generateNewPlan() {
+    const btn = document.getElementById('genBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    showToast('Генерирую план питания…', 'info');
+
+    try {
+        const user = window.simpleState.userData;
+        const med  = window.simpleState.medicalInfo;
+
+        // Данные за последние 3 дня
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 3);
+        const prevData = window.simpleState.meals
+            .filter(m => new Date(m.meal_date) >= cutoff)
+            .reduce((acc, m) => {
+                const ex = acc.find(d => d.date === m.meal_date);
+                if (ex) ex.calories += m.calories || 0;
+                else acc.push({ date: m.meal_date, calories: m.calories || 0 });
+                return acc;
+            }, []);
+
+        const plan = await window.simpleAI.generateMealPlan(user, med, prevData);
+
+        if (!plan || plan.error) {
+            showToast(plan?.error || 'Ошибка генерации', 'error');
+            return;
+        }
+
+        // plan.total_calories уже snake_case — JS-файл возвращает именно это
+        const planData = {
+            plan_date:          new Date().toISOString().split('T')[0],
+            breakfast_name:     plan.breakfast?.name        || '',
+            breakfast_calories: plan.breakfast?.calories    || 0,
+            breakfast_protein:  plan.breakfast?.protein     || 0,
+            breakfast_fat:      plan.breakfast?.fat         || 0,
+            breakfast_carbs:    plan.breakfast?.carbs       || 0,
+            lunch_name:         plan.lunch?.name            || '',
+            lunch_calories:     plan.lunch?.calories        || 0,
+            lunch_protein:      plan.lunch?.protein         || 0,
+            lunch_fat:          plan.lunch?.fat             || 0,
+            lunch_carbs:        plan.lunch?.carbs           || 0,
+            dinner_name:        plan.dinner?.name           || '',
+            dinner_calories:    plan.dinner?.calories       || 0,
+            dinner_protein:     plan.dinner?.protein        || 0,
+            dinner_fat:         plan.dinner?.fat            || 0,
+            dinner_carbs:       plan.dinner?.carbs          || 0,
+            snack_name:         plan.snack?.name            || '',
+            snack_calories:     plan.snack?.calories        || 0,
+            snack_protein:      plan.snack?.protein         || 0,
+            snack_fat:          plan.snack?.fat             || 0,
+            snack_carbs:        plan.snack?.carbs           || 0,
+            total_calories:     plan.total_calories         || 0,
+            total_protein:      plan.total_protein          || 0,
+            total_fat:          plan.total_fat              || 0,
+            total_carbs:        plan.total_carbs            || 0,
+            // Рекомендации уже очищены от markdown в JS-файле
+            ai_recommendations: Array.isArray(plan.recommendations)
+                ? plan.recommendations.join('\n')
+                : (plan.recommendations || '')
+        };
+
+        const r = await window.saveMealPlan(planData);
+        if (r.success) {
+            showToast('План сгенерирован! ✓', 'success');
+            showTab('plan');
+        } else {
+            showToast(r.error || 'Не удалось сохранить', 'error');
+        }
+    } catch (err) {
+        console.error('generateNewPlan:', err);
+        showToast('Ошибка: ' + err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="sparkles" style="width:14px;height:14px;"></i> Сгенерировать';
+            requestAnimationFrame(() => lucide.createIcons());
+        }
+    }
+}
+
+async function updateProfile() {
+    const weight   = parseFloat(document.getElementById('profileWeight').value)   || null;
+    const calories = parseInt(document.getElementById('profileCalories').value)   || 2000;
+    const r = await window.updateUserData({ weight, daily_calorie_goal: calories });
+    if (r.success && weight) {
+        await window.addWeightProgress({
+            weight,
+            measured_date: new Date().toISOString().split('T')[0],
+            note: 'Обновлён в профиле'
+        });
+    }
+    if (r.success) showTab('home');
+}
+
+function showAddMedicalForm() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'medModal';
+    modal.innerHTML = `
+    <div class="modal-card">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Добавить медданные</h3>
+        <form id="medicalForm" class="space-y">
+            <div class="field"><label>Название</label><input type="text" id="medicalName" required placeholder="Напр. Аллергия на орехи"></div>
+            <div class="grid-2">
+                <div class="field">
+                    <label>Тип</label>
+                    <select id="medicalType">
+                        <option value="disease">Заболевание</option>
+                        <option value="allergy">Аллергия</option>
+                        <option value="intolerance">Непереносимость</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Тяжесть</label>
+                    <select id="medicalSeverity">
+                        <option value="mild">Лёгкая</option>
+                        <option value="moderate">Средняя</option>
+                        <option value="severe">Тяжёлая</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field"><label>Описание (необязательно)</label><textarea id="medicalDescription" rows="2" placeholder="Дополнительная информация"></textarea></div>
+            <div class="grid-2" style="margin-top:.25rem;">
+                <button type="submit" class="btn btn-primary">Добавить</button>
+                <button type="button" onclick="closeMedicalModal()" class="btn btn-ghost">Отмена</button>
+            </div>
+        </form>
+    </div>`;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => lucide.createIcons());
+
+    document.getElementById('medicalForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const r = await window.addMedicalInfo({
+            name:        document.getElementById('medicalName').value.trim(),
+            info_type:   document.getElementById('medicalType').value,
+            severity:    document.getElementById('medicalSeverity').value,
+            description: document.getElementById('medicalDescription').value.trim()
+        });
+        if (r.success) { closeMedicalModal(); showTab('profile'); }
+    });
+}
+
+function closeMedicalModal() { document.getElementById('medModal')?.remove(); }
+
+async function deleteMedicalInfo(id) {
+    if (!confirm('Удалить эту запись?')) return;
+    const r = await window.simpleState.deleteMedicalInfo(id);
+    if (r.success) { showToast('Запись удалена', 'success'); showTab('profile'); }
+}
+
+function changeTheme(t) { window.simpleState.updateTheme(t); }
+
+async function logout() {
+    if (!confirm('Выйти из аккаунта?')) return;
+    await window.simpleState.logout();
+    document.getElementById('email').value    = '';
+    document.getElementById('password').value = '';
+    showAuthScreen();
+}
+
+Object.assign(window, {
+    showTab, switchAuthMode, generateNewPlan, updateProfile,
+    showAddMedicalForm, closeMedicalModal, deleteMedicalInfo,
+    changeTheme, logout, updateCaloriePreview, deleteMealAndRefresh
+});
+</script>
+</body>
+</html>
