@@ -3,13 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Nutrition</title>
+    <title>Smart Nutrition - Умный контроль питания</title>
+
+    <!-- Environment Variables Injection -->
+    <script>
+        window.ENV = {
+            NEXT_PUBLIC_SUPABASE_URL: 'https://hoqzwcpdkaxmvpkqdaln.supabase.co',
+            NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_n2ygu9xlDMUZBL5w8YyqIg_k-tRuj-f',
+            NEXT_PUBLIC_GEMINI_API_KEY: 'AIzaSyDK1rrMNQL26T8Skv9aun8lALMiHCRp_CQ'
+        };
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="smart-nutrition-simple.js"></script>
 

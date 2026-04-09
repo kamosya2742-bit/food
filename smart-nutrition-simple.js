@@ -13,9 +13,9 @@ class SimpleState {
     }
 
     initSupabase() {
-        // Supabase data from environment variables
-        const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hoqzwcpdkaxmvpkqdaln.supabase.co';
-        const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_n2ygu9xlDMUZBL5w8YyqIg_k-tRuj-f';
+        // Supabase data from environment variables (Vercel injects these)
+        const SUPABASE_URL = window.ENV?.NEXT_PUBLIC_SUPABASE_URL || 'https://hoqzwcpdkaxmvpkqdaln.supabase.co';
+        const SUPABASE_ANON_KEY = window.ENV?.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_n2ygu9xlDMUZBL5w8YyqIg_k-tRuj-f';
         
         this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
@@ -353,7 +353,7 @@ class SimpleState {
 
 class SimpleAI {
     constructor() {
-        this.apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'AIzaSyDK1rrMNQL26T8Skv9aun8lALMiHCRp_CQ';
+        this.apiKey = window.ENV?.NEXT_PUBLIC_GEMINI_API_KEY || 'AIzaSyDK1rrMNQL26T8Skv9aun8lALMiHCRp_CQ';
         this.models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
     }
 
