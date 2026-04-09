@@ -418,64 +418,91 @@ class SimpleAI {
     }
 
     async generateMealPlan(userData, medicalInfo = [], previousDaysData = []) {
+        const goal = userData?.daily_calorie_goal || 2000;
         const medCtx = medicalInfo.length > 0 ? `ÒÅÊ: ${medicalInfo.map(m => `${m.name} (${m.severity})`).join(', ')}.` : '';
-        const prevCtx = previousDaysData.length > 0 ? `Ïðåäûäóùèå äíè: ${previousDaysData.map(d => `${d.date}: ${d.calories}êêàë`).join(', ')}` : '';
         
-        const prompt = `Ñîñòàâü ïëàí ïèòàíèÿ íà äåíü. ${medCtx} ${prevCtx}
-Ïîëüçîâàòåëü: ${userData.name}, ${this.calcAge(userData.birth_date)}ë, ${userData.gender}, ${userData.height}ñì, ${userData.weight}êã, öåëü ${userData.daily_calorie_goal}êêàë.
-Âåðíè ÒÎËÜÊÎ JSON áåç êîììåíòàðèåâ:
-{"breakfast":{"name":"Îâñÿíêà ñ ÿãîäàìè","calories":400,"protein":15,"fat":10,"carbs":65},"lunch":{"name":"Ãðå÷åñêèé ñàëàò ñ êóðèöåé","calories":500,"protein":40,"fat":20,"carbs":45},"dinner":{"name":"çàïå÷åííàÿ òðåñêà ñ îâîùàìè","calories":450,"protein":35,"fat":15,"carbs":50},"snack":{"name":"ãðåéïôðóêò","calories":100,"protein":1,"fat":0,"carbs":25},"recommendations":["Ïåéòå 2 ëèòðà âîäû","Ñíèçüòü ñàõàð"],"adjustments":"Îáùàÿ êàëîðèéíîñòü 1450 êêàë"}`;
+        // Simple direct prompt in English for better reliability
+        const prompt = `Create a meal plan for one day. User: ${userData?.name || 'User'}, ${this.calcAge(userData?.birth_date)} years old, ${userData?.gender || 'unknown'}, height ${userData?.height || 'unknown'}cm, weight ${userData?.weight || 'unknown'}kg, goal ${goal} kcal/day. ${medCtx}
+Return ONLY valid JSON without markdown:
+{"breakfast":{"name":"Oatmeal with berries","calories":400,"protein":15,"fat":10,"carbs":65},"lunch":{"name":"Grilled chicken salad","calories":500,"protein":40,"fat":20,"carbs":45},"dinner":{"name":"Baked salmon with vegetables","calories":450,"protein":35,"fat":15,"carbs":50},"snack":{"name":"Apple and nuts","calories":150,"protein":5,"fat":8,"carbs":25},"recommendations":["Drink 2 liters of water daily","Reduce sugar intake"],"adjustments":"Total calories match your goal"}`;
         
         try {
-            console.log('Sending prompt to AI...'); // Debug
+            console.log('Sending meal plan request to AI...');
             const response = await this._withFallback(() => ({ contents: [{ parts: [{ text: prompt }] }] }));
             
-            console.log('Raw AI Response type:', typeof response); // Debug
-            console.log('Raw AI Response:', response); // Debug
+            console.log('AI Response received:', response);
             
-            // Èùåì JSON â îòâåòå
+            // Extract JSON from response
             let jsonText = response;
             if (typeof response === 'object') {
                 jsonText = JSON.stringify(response);
-                console.log('Stringified response:', jsonText); // Debug
             }
             
             const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
-                console.error('No JSON found in response:', jsonText);
-                console.error('Full response text:', jsonText.substring(0, 500)); // First 500 chars
-                throw new Error('JSON not found in response');
+                console.error('No JSON found in AI response');
+                throw new Error('No JSON in AI response');
             }
             
             const planText = jsonMatch[0];
-            console.log('Extracted JSON:', planText); // Debug
+            console.log('Extracted JSON:', planText);
             
             const plan = JSON.parse(planText);
-            console.log('Successfully parsed plan:', plan); // Debug
+            console.log('Successfully parsed meal plan:', plan);
             
-            // Ïðàâèëüíûé ïîäñ÷¸ò èòîãîâ
+            // Calculate totals
             plan.total_calories = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.calories||0), 0);
             plan.total_protein  = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.protein||0), 0);
             plan.total_fat      = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.fat||0), 0);
             plan.total_carbs    = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.carbs||0), 0);
             
-            console.log('Parsed plan:', plan); // Debug
             return plan;
             
         } catch (error) {
-            console.error('Meal plan generation error:', error);
-            // Âîçâðàùàåì ïëàí ïî óìîë÷àíèþ åñëè îøèáêà
+            console.error('Meal plan generation failed:', error);
+            console.log('Using fallback meal plan...');
+            
+            // Generate dynamic fallback based on user's goal
+            const breakfastCal = Math.round(goal * 0.25);
+            const lunchCal = Math.round(goal * 0.35);
+            const dinnerCal = Math.round(goal * 0.30);
+            const snackCal = goal - breakfastCal - lunchCal - dinnerCal;
+            
             return {
-                breakfast: { name: "Îâñÿíàÿ êàøà", calories: 350, protein: 12, fat: 8, carbs: 60 },
-                lunch: { name: "Êóðèíûé ñàëàò", calories: 450, protein: 35, fat: 15, carbs: 40 },
-                dinner: { name: "Ðûáà ñ îâîùàìè", calories: 400, protein: 30, fat: 12, carbs: 45 },
-                snack: { name: "Ôðóêòû", calories: 150, protein: 2, fat: 1, carbs: 35 },
-                recommendations: ["Ïåéòå áîëüøå âîäû", "Ñíèçüòü ñîëü"],
-                adjustments: "Îáùàÿ êàëîðèéíîñòü ñîîòâåòñòâóåò öåëè",
-                total_calories: 1350,
-                total_protein: 79,
-                total_fat: 36,
-                total_carbs: 180
+                breakfast: { 
+                    name: "Овсяная каша с ягодами", 
+                    calories: breakfastCal, 
+                    protein: Math.round(breakfastCal * 0.15 / 4), 
+                    fat: Math.round(breakfastCal * 0.25 / 9), 
+                    carbs: Math.round(breakfastCal * 0.60 / 4) 
+                },
+                lunch: { 
+                    name: "Куриный салат", 
+                    calories: lunchCal, 
+                    protein: Math.round(lunchCal * 0.35 / 4), 
+                    fat: Math.round(lunchCal * 0.30 / 9), 
+                    carbs: Math.round(lunchCal * 0.35 / 4) 
+                },
+                dinner: { 
+                    name: "Рыба с овощами", 
+                    calories: dinnerCal, 
+                    protein: Math.round(dinnerCal * 0.40 / 4), 
+                    fat: Math.round(dinnerCal * 0.30 / 9), 
+                    carbs: Math.round(dinnerCal * 0.30 / 4) 
+                },
+                snack: { 
+                    name: "Фрукты и орехи", 
+                    calories: snackCal, 
+                    protein: Math.round(snackCal * 0.10 / 4), 
+                    fat: Math.round(snackCal * 0.40 / 9), 
+                    carbs: Math.round(snackCal * 0.50 / 4) 
+                },
+                recommendations: ["Пейте больше воды", "Снизьте потребление сахара"],
+                adjustments: `План адаптирован под вашу цель в ${goal} ккал`,
+                total_calories: goal,
+                total_protein: Math.round(goal * 0.25 / 4),
+                total_fat: Math.round(goal * 0.30 / 9),
+                total_carbs: Math.round(goal * 0.45 / 4)
             };
         }
     }
