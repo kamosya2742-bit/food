@@ -35,7 +35,10 @@ class SimpleState {
 
     async login(email, password) {
         try {
-            if (!this.supabase) return { success: false, error: 'Нет подключения к базе данных' };
+            if (!this.supabase) {
+                console.error('Supabase not initialized');
+                return { success: false, error: 'Ïåò ïîäêëþ÷åíèÿ ê áàçå äàííûõ' };
+            }
 
             const { data: userData, error: userError } = await this.supabase
                 .from('users')
@@ -360,6 +363,9 @@ class SimpleAI {
     constructor() {
         this.apiKey = window.ENV?.NEXT_PUBLIC_GEMINI_API_KEY;
         this.models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+        
+        console.log('ENV variables:', window.ENV);
+        console.log('Gemini API key found:', !!this.apiKey);
         
         if (!this.apiKey) {
             console.error('Gemini API key not found in environment variables');
