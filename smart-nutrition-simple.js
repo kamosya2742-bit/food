@@ -386,7 +386,7 @@ class SimpleState {
 class SimpleAI {
     constructor() {
         this.apiKey = window.ENV?.NEXT_PUBLIC_GEMINI_API_KEY;
-        this.models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+        this.models = ['gemini-2.5-flash', 'gemini-1.5-flash-latest'];
         
         console.log('ENV variables:', window.ENV);
         console.log('Gemini API key found:', !!this.apiKey);
