@@ -15,5 +15,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "_vercel.js": {
+      "runtime": "nodejs18.x"
+    }
+  }
 }

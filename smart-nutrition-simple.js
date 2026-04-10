@@ -29,6 +29,26 @@ class SimpleState {
         const theme = localStorage.getItem('theme') || 'dark';
         if (document.body) document.body.setAttribute('data-theme', theme);
         this.currentTheme = theme;
+        this.loadEnvironmentVariables();
+    }
+
+    async loadEnvironmentVariables() {
+        try {
+            // Try to fetch environment variables from API route
+            const response = await fetch('/api/env');
+            if (response.ok) {
+                const envVars = await response.json();
+                window.ENV = envVars;
+                console.log('Environment variables loaded from API:', envVars);
+                
+                // Reinitialize Supabase with loaded variables
+                this.initSupabase();
+            } else {
+                console.error('Failed to load environment variables from API');
+            }
+        } catch (error) {
+            console.error('Error loading environment variables:', error);
+        }
     }
 
     // ── АВТОРИЗАЦИЯ ──────────────────────────────────────────────────────
