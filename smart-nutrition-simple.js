@@ -14,8 +14,13 @@ class SimpleState {
 
     initSupabase() {
         // Supabase data from environment variables (Vercel injects these)
-        const SUPABASE_URL = window.ENV?.NEXT_PUBLIC_SUPABASE_URL || 'https://hoqzwcpdkaxmvpkqdaln.supabase.co';
-        const SUPABASE_ANON_KEY = window.ENV?.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_n2ygu9xlDMUZBL5w8YyqIg_k-tRuj-f';
+        const SUPABASE_URL = window.ENV?.NEXT_PUBLIC_SUPABASE_URL;
+        const SUPABASE_ANON_KEY = window.ENV?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            console.error('Supabase credentials not found in environment variables');
+            return;
+        }
         
         this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
@@ -353,8 +358,12 @@ class SimpleState {
 
 class SimpleAI {
     constructor() {
-        this.apiKey = window.ENV?.NEXT_PUBLIC_GEMINI_API_KEY || 'AIzaSyDK1rrMNQL26T8Skv9aun8lALMiHCRp_CQ';
+        this.apiKey = window.ENV?.NEXT_PUBLIC_GEMINI_API_KEY;
         this.models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+        
+        if (!this.apiKey) {
+            console.error('Gemini API key not found in environment variables');
+        }
     }
 
     // Убирает markdown: **жирный**, *курсив*, # заголовки, - маркеры
