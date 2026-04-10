@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Nutrition - Умный контроль питания</title>
 
-    <!-- Environment Variables Injection -->
-    <script>
-    
-    </script>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -31,7 +26,7 @@
             --text-2:    #9ca3b0;
             --text-3:    #6b7280;
 
-            --accent:    #6366f1;      /* indigo */
+            --accent:    #6366f1;
             --accent-h:  #818cf8;
             --accent-bg: rgba(99,102,241,.12);
 
@@ -48,9 +43,6 @@
             --r-sm: 8px;
         }
 
-        /* ══════════════════════════════════════════════════
-           СВЕТЛАЯ ТЕМА — хороший контраст, не сливается
-        ══════════════════════════════════════════════════ */
         [data-theme="light"] {
             --bg:        #f1f3f9;
             --surface:   #ffffff;
@@ -74,7 +66,6 @@
             --blue-bg:   rgba(2,132,199,.1);
         }
 
-        /* ── BASE ─────────────────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -86,7 +77,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ── CARDS ────────────────────────────────────────── */
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -100,7 +90,6 @@
             padding: .75rem 1rem;
         }
 
-        /* ── BUTTONS ──────────────────────────────────────── */
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             font-size: .875rem; font-weight: 600; border: none; cursor: pointer;
@@ -122,7 +111,6 @@
         .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
         .btn-full { width: 100%; }
 
-        /* ── INPUTS ───────────────────────────────────────── */
         .field { display: flex; flex-direction: column; gap: 5px; }
         .field label { font-size: .75rem; font-weight: 600; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
         input, select, textarea {
@@ -143,7 +131,6 @@
         }
         select option { background: var(--surface); color: var(--text); }
 
-        /* ── HEADER / NAV ─────────────────────────────────── */
         .app-header {
             background: var(--surface);
             border-bottom: 1px solid var(--border);
@@ -171,7 +158,6 @@
         .nav-btn svg { width: 18px; height: 18px; }
         .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-        /* ── PROGRESS ─────────────────────────────────────── */
         .prog-track {
             background: var(--surface2); border-radius: 99px; height: 8px; overflow: hidden;
         }
@@ -181,7 +167,6 @@
         }
         .prog-fill.over { background: linear-gradient(90deg, var(--red), var(--yellow)); }
 
-        /* ── MACROS ───────────────────────────────────────── */
         .macro-row { display: flex; gap: .65rem; }
         .macro-pill {
             flex: 1; text-align: center;
@@ -191,7 +176,6 @@
         .macro-val { font-size: 1.1rem; font-weight: 700; }
         .macro-lbl { font-size: .65rem; color: var(--text-3); margin-top: 2px; text-transform: uppercase; letter-spacing: .04em; }
 
-        /* ── MEAL ROW ─────────────────────────────────────── */
         .meal-row {
             display: flex; align-items: center; justify-content: space-between;
             background: var(--surface2); border: 1px solid var(--border);
@@ -206,13 +190,11 @@
         }
         .meal-row:hover .meal-del { opacity: 1; }
 
-        /* ── PLAN BLOCKS ──────────────────────────────────── */
         .plan-block {
             border-left: 3px solid var(--accent);
             padding: .6rem 0 .6rem .9rem;
         }
 
-        /* ── AUTH ─────────────────────────────────────────── */
         .auth-wrap {
             min-height: 100vh; display: flex; align-items: center;
             justify-content: center; padding: 1.25rem;
@@ -241,7 +223,6 @@
         }
         .auth-tab.active { background: var(--accent); color: #fff; }
 
-        /* ── MODAL ────────────────────────────────────────── */
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,.6);
             backdrop-filter: blur(4px); z-index: 50;
@@ -254,7 +235,6 @@
             width: 100%; max-width: 420px; animation: fadeUp .25s ease;
         }
 
-        /* ── TOASTS ───────────────────────────────────────── */
         #toastContainer {
             position: fixed; top: 1rem; right: 1rem; z-index: 100;
             display: flex; flex-direction: column; gap: 6px;
@@ -268,7 +248,6 @@
         .toast-error   { background: var(--red-bg);   border: 1px solid var(--red);   color: var(--red); }
         .toast-info    { background: var(--accent-bg); border: 1px solid var(--accent); color: var(--accent-h); }
 
-        /* ── UPLOAD ZONE ──────────────────────────────────── */
         .upload-zone {
             border: 2px dashed var(--border); border-radius: var(--r);
             padding: 2rem 1rem; text-align: center; cursor: pointer;
@@ -277,14 +256,11 @@
         .upload-zone:hover { border-color: var(--accent); background: var(--accent-bg); }
         .upload-zone svg { width: 36px; height: 36px; color: var(--text-3); margin: 0 auto .6rem; display: block; }
 
-        /* ── EMPTY STATE ──────────────────────────────────── */
         .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-3); }
         .empty-state svg { width: 40px; height: 40px; margin: 0 auto .75rem; display: block; opacity: .4; }
 
-        /* ── SECTION TITLE ────────────────────────────────── */
         .section-title { font-size: 1.35rem; font-weight: 700; letter-spacing: -.015em; }
 
-        /* ── BADGE ────────────────────────────────────────── */
         .badge {
             display: inline-block; padding: 1px 7px; border-radius: 99px;
             font-size: .7rem; font-weight: 600; text-transform: uppercase;
@@ -292,7 +268,6 @@
             background: var(--surface2); color: var(--text-3); border: 1px solid var(--border);
         }
 
-        /* ── UTILS ────────────────────────────────────────── */
         .space-y > * + * { margin-top: .85rem; }
         .space-y-sm > * + * { margin-top: .5rem; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
@@ -308,7 +283,6 @@
         .c-2      { color: var(--text-2); }
         .c-3      { color: var(--text-3); }
 
-        /* ── ANIMATIONS ───────────────────────────────────── */
         @keyframes fadeUp  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
         @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
         @keyframes slideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
@@ -526,7 +500,6 @@ function showHome(c) {
 
     c.innerHTML = `
     <div class="space-y">
-        <!-- Greeting -->
         <div class="card">
             <div class="flex-between">
                 <div>
@@ -543,7 +516,6 @@ function showHome(c) {
             </div>
         </div>
 
-        <!-- Progress -->
         <div class="card">
             <div class="flex-between" style="margin-bottom:.65rem;">
                 <span style="font-size:.9rem;font-weight:600;">Дневной прогресс</span>
@@ -570,7 +542,6 @@ function showHome(c) {
             </div>
         </div>
 
-        <!-- Meals -->
         ${meals.length > 0 ? `
         <div class="card">
             <div class="flex-between" style="margin-bottom:.85rem;">
@@ -648,7 +619,6 @@ function showAddMeal(c) {
             </form>
         </div>
 
-        <!-- AI photo -->
         <div class="card">
             <h3 style="font-size:.95rem;font-weight:600;margin-bottom:.85rem;">
                 <span class="c-accent">AI</span> Анализ фото
@@ -778,7 +748,6 @@ function showMealPlan(c) {
                     ${block('breakfast')}${block('lunch')}${block('dinner')}${block('snack')}
                 </div>
 
-                <!-- Totals -->
                 <div style="margin-top:1rem;padding:.85rem;background:var(--surface2);border-radius:var(--r-sm);text-align:center;">
                     <div style="font-size:1.7rem;font-weight:700;color:var(--accent-h);">${Math.round(plan.total_calories)}</div>
                     <div style="font-size:.7rem;color:var(--text-3);margin-bottom:.65rem;text-transform:uppercase;letter-spacing:.04em;">итого ккал</div>
@@ -872,7 +841,6 @@ async function generateNewPlan() {
         const user = window.simpleState.userData;
         const med  = window.simpleState.medicalInfo;
 
-        // Данные за последние 3 дня
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - 3);
         const prevData = window.simpleState.meals
@@ -891,7 +859,6 @@ async function generateNewPlan() {
             return;
         }
 
-        // plan.total_calories уже snake_case — JS-файл возвращает именно это
         const planData = {
             plan_date:          new Date().toISOString().split('T')[0],
             breakfast_name:     plan.breakfast?.name        || '',
@@ -918,7 +885,6 @@ async function generateNewPlan() {
             total_protein:      plan.total_protein          || 0,
             total_fat:          plan.total_fat              || 0,
             total_carbs:        plan.total_carbs            || 0,
-            // Рекомендации уже очищены от markdown в JS-файле
             ai_recommendations: Array.isArray(plan.recommendations)
                 ? plan.recommendations.join('\n')
                 : (plan.recommendations || '')

@@ -13,9 +13,8 @@ class SimpleState {
     }
 
     initSupabase() {
-        // Supabase data from environment variables (Vercel injects these)
-        const SUPABASE_URL = window.ENV?.NEXT_PUBLIC_SUPABASE_URL || 'https://hoqzwcpdkaxmvpkqdaln.supabase.co';
-        const SUPABASE_ANON_KEY = window.ENV?.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_n2ygu9xlDMUZBL5w8YyqIg_k-tRuj-f';
+        const SUPABASE_URL = window.ENV?.NEXT_PUBLIC_SUPABASE_URL || '';
+        const SUPABASE_ANON_KEY = window.ENV?.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
         
         this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
@@ -233,12 +232,10 @@ class SimpleState {
 
     async saveMealPlan(planData) {
         try {
-            // Check if plan for this date already exists
             const existingPlan = this.mealPlans.find(p => p.plan_date === planData.plan_date);
             
             let data, error;
             if (existingPlan) {
-                // Update existing plan
                 const result = await this.supabase
                     .from('meal_plans')
                     .update(planData)
@@ -247,7 +244,6 @@ class SimpleState {
                 data = result.data;
                 error = result.error;
             } else {
-                // Insert new plan
                 const result = await this.supabase
                     .from('meal_plans')
                     .insert({ user_id: this.currentUser.id, ...planData })
@@ -258,7 +254,6 @@ class SimpleState {
             
             if (error) throw error;
             
-            // Update local array
             const idx = this.mealPlans.findIndex(p => p.plan_date === planData.plan_date);
             if (idx >= 0) this.mealPlans[idx] = data;
             else this.mealPlans.unshift(data);
@@ -353,11 +348,10 @@ class SimpleState {
 
 class SimpleAI {
     constructor() {
-        this.apiKey = window.ENV?.NEXT_PUBLIC_GEMINI_API_KEY || 'AIzaSyDK1rrMNQL26T8Skv9aun8lALMiHCRp_CQ';
+        // Ключ больше не нужен на клиенте — все запросы идут через /api/gemini
         this.models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
     }
 
-    // Убирает markdown: **жирный**, *курсив*, # заголовки, - маркеры
     static stripMarkdown(text) {
         if (!text) return '';
         return text
@@ -369,19 +363,27 @@ class SimpleAI {
             .trim();
     }
 
+    // Все запросы идут через серверный прокси /api/gemini
+    // Ключ хранится только в переменных окружения Vercel — клиент его не видит
     async _callAPI(model, body) {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-        );
+        const res = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, body })
+        });
+
         if (!res.ok) {
             const errText = await res.text().catch(() => '');
-            throw Object.assign(new Error(`API ${res.status}: ${errText.slice(0, 150)}`), { status: res.status });
+            throw Object.assign(
+                new Error(`API ${res.status}: ${errText.slice(0, 150)}`),
+                { status: res.status }
+            );
         }
+
         const data = await res.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) throw new Error('Пустой ответ от AI');
-        // Убираем ```json ... ``` обёртку
+
         const clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
         const match = clean.match(/\{[\s\S]*\}/);
         if (!match) throw new Error('AI не вернул JSON: ' + clean.slice(0, 200));
@@ -421,7 +423,6 @@ class SimpleAI {
         const goal = userData?.daily_calorie_goal || 2000;
         const medCtx = medicalInfo.length > 0 ? `ÒÅÊ: ${medicalInfo.map(m => `${m.name} (${m.severity})`).join(', ')}.` : '';
         
-        // Simple direct prompt in English for better reliability
         const prompt = `Create a meal plan for one day. User: ${userData?.name || 'User'}, ${this.calcAge(userData?.birth_date)} years old, ${userData?.gender || 'unknown'}, height ${userData?.height || 'unknown'}cm, weight ${userData?.weight || 'unknown'}kg, goal ${goal} kcal/day. ${medCtx}
 Return ONLY valid JSON without markdown:
 {"breakfast":{"name":"Oatmeal with berries","calories":400,"protein":15,"fat":10,"carbs":65},"lunch":{"name":"Grilled chicken salad","calories":500,"protein":40,"fat":20,"carbs":45},"dinner":{"name":"Baked salmon with vegetables","calories":450,"protein":35,"fat":15,"carbs":50},"snack":{"name":"Apple and nuts","calories":150,"protein":5,"fat":8,"carbs":25},"recommendations":["Drink 2 liters of water daily","Reduce sugar intake"],"adjustments":"Total calories match your goal"}`;
@@ -432,7 +433,6 @@ Return ONLY valid JSON without markdown:
             
             console.log('AI Response received:', response);
             
-            // Extract JSON from response
             let jsonText = response;
             if (typeof response === 'object') {
                 jsonText = JSON.stringify(response);
@@ -444,13 +444,9 @@ Return ONLY valid JSON without markdown:
                 throw new Error('No JSON in AI response');
             }
             
-            const planText = jsonMatch[0];
-            console.log('Extracted JSON:', planText);
-            
-            const plan = JSON.parse(planText);
+            const plan = JSON.parse(jsonMatch[0]);
             console.log('Successfully parsed meal plan:', plan);
             
-            // Calculate totals
             plan.total_calories = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.calories||0), 0);
             plan.total_protein  = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.protein||0), 0);
             plan.total_fat      = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.fat||0), 0);
@@ -462,7 +458,6 @@ Return ONLY valid JSON without markdown:
             console.error('Meal plan generation failed:', error);
             console.log('Using fallback meal plan...');
             
-            // Generate dynamic fallback based on user's goal
             const breakfastCal = Math.round(goal * 0.25);
             const lunchCal = Math.round(goal * 0.35);
             const dinnerCal = Math.round(goal * 0.30);
@@ -520,7 +515,6 @@ Return ONLY valid JSON without markdown:
 window.simpleState = new SimpleState();
 window.simpleAI    = new SimpleAI();
 
-// showToast — fallback; основная версия в HTML перекрывает её
 window.showToast = window.showToast || function(msg, type = 'info') {
     const c = document.getElementById('toastContainer');
     if (!c) { console.log(`[${type}]`, msg); return; }
