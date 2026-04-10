@@ -43,6 +43,10 @@ class SimpleState {
                 
                 // Reinitialize Supabase with loaded variables
                 this.initSupabase();
+                
+                // Initialize AI after environment variables are loaded
+                window.simpleAI = new SimpleAI();
+                console.log('AI initialized with environment variables');
             } else {
                 console.error('Failed to load environment variables from API');
             }
@@ -553,7 +557,8 @@ Return ONLY valid JSON without markdown:
 // ════════════════════════════════════════════════════════════════
 
 window.simpleState = new SimpleState();
-window.simpleAI    = new SimpleAI();
+// AI будет инициализирован после загрузки переменных окружения
+window.simpleAI = null;
 
 // showToast — fallback; основная версия в HTML перекрывает её
 window.showToast = window.showToast || function(msg, type = 'info') {
