@@ -240,7 +240,12 @@
         }
         .modal-card {
             background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
-            padding: 1.5rem; width: 100%; max-width: 420px; animation: fadeUp .25s ease;
+            padding: 1.5rem; width: 100%; max-width: 520px; max-height: 90vh;
+            overflow-y: auto; box-sizing: border-box; animation: fadeUp .25s ease;
+            word-break: break-word;
+        }
+        @media (max-width: 640px) {
+            .modal-card { max-width: 100%; padding: 1.1rem; }
         }
 
         #toastContainer {
@@ -1180,14 +1185,15 @@ function showWeeklyAnalysisResultModal(result, diff, currentWeight) {
     modal.innerHTML = `
     <div class="modal-card">
         <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">${t('weekly_analysis_title')}</h3>
-        <div style="font-size:.95rem;color:var(--text);line-height:1.6;margin-bottom:1rem;">${result.message || t('analysis_default_message')}</div>
+        <div style="font-size:.95rem;color:var(--text);line-height:1.7;margin-bottom:1rem;white-space:pre-line;">${result.message || t('analysis_default_message')}</div>
         ${Array.isArray(result.recommendations) && result.recommendations.length ? `
         <div style="margin-bottom:1rem;">
-            <div style="font-size:.8rem;font-weight:700;color:var(--accent-h);margin-bottom:.5rem;">${t('recommendations')}</div>
-            <ul style="padding-left:1.1rem;color:var(--text-2);line-height:1.6;">
-                ${result.recommendations.map(rec => `<li style="margin-bottom:.4rem;">${rec}</li>`).join('')}
+            <div style="font-size:.85rem;font-weight:700;color:var(--accent-h);margin-bottom:.5rem;">${t('recommendations')}</div>
+            <ul style="padding-left:1.2rem;color:var(--text-2);line-height:1.6;">
+                ${result.recommendations.map(rec => `<li style="margin-bottom:.5rem;">${rec}</li>`).join('')}
             </ul>
         </div>` : ''}
+        ${result.suggested_calorie_goal ? `<div style="font-size:.88rem;color:var(--text-3);margin-bottom:1rem;">${tWithParams('suggested_calorie_goal', { goal: result.suggested_calorie_goal })}</div>` : ''}
         <div style="font-size:.8rem;color:var(--text-3);margin-bottom:1rem;">${tWithParams('analysis_changed_weight', { weight: currentWeight.toFixed(2), diff: diff.toFixed(2) })}</div>
         <button class="btn btn-primary btn-full" onclick="closeAnalysisModal()">${t('close')}</button>
     </div>`;

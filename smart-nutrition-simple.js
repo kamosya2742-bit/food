@@ -412,6 +412,7 @@ class I18n {
                 analysis_failed: 'Не удалось провести анализ',
                 analysis_default_message: 'Ваш недельный анализ готов.',
                 analysis_changed_weight: 'Новый вес: {weight} кг. Изменение: {diff} кг.',
+                suggested_calorie_goal: 'Рекомендуемая цель: {goal} ккал.',
                 close: 'Закрыть',
                 // Profile
                 profile: 'Профиль',
@@ -541,6 +542,7 @@ class I18n {
                 analysis_failed: 'Талдауды орындау мүмкін болмады',
                 analysis_default_message: 'Апталық талдау дайын.',
                 analysis_changed_weight: 'Жаңа салмақ: {weight} кг. Өзгеріс: {diff} кг.',
+                suggested_calorie_goal: 'Ұсынылатын мақсат: {goal} ккал.',
                 close: 'Жабу',
                 profile: 'Профиль',
                 personal_data: 'Жеке деректер',
@@ -667,6 +669,7 @@ class I18n {
                 analysis_failed: 'Could not complete analysis',
                 analysis_default_message: 'Weekly analysis is ready.',
                 analysis_changed_weight: 'New weight: {weight} kg. Change: {diff} kg.',
+                suggested_calorie_goal: 'Suggested goal: {goal} kcal.',
                 close: 'Close',
                 profile: 'Profile',
                 personal_data: 'Personal Data',
@@ -872,7 +875,8 @@ Return ONLY valid JSON without markdown:
             return `${day.date}: ${total} kcal, ${names}`;
         }).join('\n');
 
-        const prompt = `You are a nutrition coach. The user started the week at ${startWeight} kg and now reports ${currentWeight} kg. Their current daily calorie goal is ${goal} kcal. ${restrictionText} Review these last 7 days of meals and calories exactly as given. Output ONLY valid JSON without markdown using keys: message, recommendations, suggested_calorie_goal.\nWeekly meals summary:\n${mealLines}\nIf weight increased, recommend stronger diet and lower the calorie goal slightly. If weight decreased, congratulate and keep or adjust the goal moderately.`;
+        const langInstr = this._getLangInstruction();
+        const prompt = `${langInstr}\nYou are a nutrition coach. The user started the week at ${startWeight} kg and now reports ${currentWeight} kg. Current daily calorie goal: ${goal} kcal. ${restrictionText}\nReview these last 7 days of meals and calories exactly as given. Return ONLY valid JSON without markdown using keys: message, recommendations, suggested_calorie_goal.\nWeekly meals summary:\n${mealLines}\nIf weight increased, recommend a stronger diet and lower the calorie goal moderately. If weight decreased, congratulate and keep or adjust the goal. If weight is stable, suggest maintaining the plan with small improvements.\nAlways respond only in the requested language.`;
 
         try {
             const response = await this._withFallback(() => ({ contents: [{ parts: [{ text: prompt }] }] }));
@@ -882,21 +886,54 @@ Return ONLY valid JSON without markdown:
             return JSON.parse(jsonMatch[0]);
         } catch (error) {
             console.error('Weekly analysis failed:', error);
+            const lang = window.i18n?.getLang() || 'ru';
             const delta = Number((currentWeight - startWeight).toFixed(2));
-            const lostMsg = delta < 0
-                ? `Бро, ты сбросил ${Math.abs(delta).toFixed(1)} кг за неделю.`
-                : delta > 0
-                    ? `Бро, ты набрал ${delta.toFixed(1)} кг за неделю.`
-                    : 'Вес остался стабильным за неделю.';
-            const recommendations = delta > 0.3
-                ? ['Уменьшите калорийность на 150-200 ккал.', 'Добавьте больше белка и овощей.', 'Увеличьте активность.']
-                : delta < -0.3
-                    ? ['Продолжайте текущую стратегию.', 'Смотрите за белком и водой.', 'Поддерживайте цель калорий.']
-                    : ['Вес стабилен — продолжайте наблюдать.', 'Сбалансируйте питание и активность.'];
+            const messages = {
+                ru: {
+                    message: delta < 0
+                        ? `Вы сбросили ${Math.abs(delta).toFixed(1)} кг за неделю.`
+                        : delta > 0
+                            ? `Вы набрали ${delta.toFixed(1)} кг за неделю.`
+                            : 'Вес остался стабильным за неделю.',
+                    recommendations: delta > 0.3
+                        ? ['Уменьшите калорийность на 150–200 ккал.', 'Добавьте больше белка и овощей.', 'Увеличьте физическую активность.']
+                        : delta < -0.3
+                            ? ['Продолжайте текущий режим.', 'Соблюдайте баланс белка и воды.', 'Поддерживайте цель по калориям.']
+                            : ['Вес стабилен — продолжайте наблюдать.', 'Сбалансируйте питание и активность.'],
+                    suggested_goal: delta > 0.3 ? Math.max(1200, goal - 150) : goal
+                },
+                kz: {
+                    message: delta < 0
+                        ? `Сіз аптасына ${Math.abs(delta).toFixed(1)} кг жоғалттыңыз.`
+                        : delta > 0
+                            ? `Сіз аптасына ${delta.toFixed(1)} кг жинадыңыз.`
+                            : 'Салмақ тұрақты қалды.',
+                    recommendations: delta > 0.3
+                        ? ['Калорияны 150–200 ккалға азайтыңыз.', 'Көп ақуыз бен көкөніс қосыңыз.', 'Физикалық белсенділікті арттырыңыз.']
+                        : delta < -0.3
+                            ? ['Қазіргі режимді жалғастырыңыз.', 'Ақуыз бен судың тепе-теңдігін сақтаңыз.', 'Калория мақсатын ұстап тұрыңыз.']
+                            : ['Салмақ тұрақты — бақылауды жалғастырыңыз.', 'Тамақ пен белсенділікті теңгеріңіз.'],
+                    suggested_goal: delta > 0.3 ? Math.max(1200, goal - 150) : goal
+                },
+                en: {
+                    message: delta < 0
+                        ? `You lost ${Math.abs(delta).toFixed(1)} kg this week.`
+                        : delta > 0
+                            ? `You gained ${delta.toFixed(1)} kg this week.`
+                            : 'Your weight remained stable this week.',
+                    recommendations: delta > 0.3
+                        ? ['Reduce calories by 150–200 kcal.', 'Add more protein and vegetables.', 'Increase physical activity.']
+                        : delta < -0.3
+                            ? ['Continue the current routine.', 'Keep protein and hydration balanced.', 'Maintain your calorie target.']
+                            : ['Weight is stable — keep monitoring.', 'Balance your meals and activity.'],
+                    suggested_goal: delta > 0.3 ? Math.max(1200, goal - 150) : goal
+                }
+            };
+            const fallback = messages[lang] || messages.ru;
             return {
-                message: lostMsg,
-                recommendations,
-                suggested_calorie_goal: delta > 0.3 ? Math.max(1200, goal - 150) : goal
+                message: fallback.message,
+                recommendations: fallback.recommendations,
+                suggested_calorie_goal: fallback.suggested_goal
             };
         }
     }
