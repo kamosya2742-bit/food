@@ -116,10 +116,11 @@ class SimpleState {
 
     async loadMeals() {
         try {
-            const d = new Date(); d.setDate(d.getDate() - 7);
+            const d = new Date(); d.setDate(d.getDate() - 30);
             const { data, error } = await this.supabase
                 .from('meals').select('*').eq('user_id', this.currentUser.id)
                 .gte('meal_date', d.toISOString().split('T')[0])
+                .order('meal_date', { ascending: false })
                 .order('created_at', { ascending: false });
             if (!error) this.meals = data || [];
         } catch (e) { console.error('loadMeals:', e); }
@@ -127,9 +128,11 @@ class SimpleState {
 
     async loadMealPlans() {
         try {
+            const d = new Date(); d.setDate(d.getDate() - 30);
             const { data, error } = await this.supabase
                 .from('meal_plans').select('*').eq('user_id', this.currentUser.id)
-                .order('plan_date', { ascending: false }).limit(7);
+                .gte('plan_date', d.toISOString().split('T')[0])
+                .order('plan_date', { ascending: false });
             if (!error) this.mealPlans = data || [];
         } catch (e) { console.error('loadMealPlans:', e); }
     }
@@ -258,6 +261,12 @@ class SimpleState {
 
     getMealsForDate(date)    { return this.meals.filter(m => m.meal_date === date); }
     getMealPlanForDate(date) { return this.mealPlans.find(p => p.plan_date === date); }
+
+    getWeightChange(days = 7) {
+        const weights = this.weightProgress.slice(0, days).map(w => w.weight);
+        if (weights.length < 2) return null;
+        return weights[0] - weights[weights.length - 1];
+    }
 
     getWeightTrend() {
         if (this.weightProgress.length < 2) return null;
@@ -723,15 +732,15 @@ class SimpleAI {
     }
 
     async analyzeImage(imageBase64, medicalInfo = []) {
-        const medCtx = medicalInfo.length > 0
-            ? `Important: user has ${medicalInfo.map(m => m.name).join(', ')}. Consider this.`
+        const restrictionText = medicalInfo.length > 0
+            ? `Important: user has ${medicalInfo.map(m => `${m.name} (${m.info_type}, ${m.severity})`).join(', ')}. Avoid any ingredient or dish that can trigger these conditions.`
             : '';
         const langInstr = this._getLangInstruction();
 
         return this._withFallback((_m) => ({
             contents: [{
                 parts: [
-                    { text: `You are a dietitian. Analyze the food photo and return ONLY valid JSON without markdown.\n${langInstr}\n${medCtx}\nFormat: {"name":"...","calories":0,"protein":0,"fat":0,"carbs":0,"weight":0,"category":"breakfast","warnings":[]}\nIf no food found: {"error":"Food not found in photo"}` },
+                    { text: `You are a dietitian. Analyze the food photo and return ONLY valid JSON without markdown.\n${langInstr}\n${restrictionText}\nFormat: {"name":"...","calories":0,"protein":0,"fat":0,"carbs":0,"weight":0,"category":"breakfast","warnings":[]}\nIf no food found: {"error":"Food not found in photo"}` },
                     { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }
                 ]
             }]
@@ -740,8 +749,15 @@ class SimpleAI {
 
     async generateMealPlan(userData, medicalInfo = [], previousDaysData = []) {
         const goal = userData?.daily_calorie_goal || 2000;
+        const restrictions = medicalInfo
+            .filter(m => ['allergy', 'intolerance'].includes(m.info_type))
+            .map(m => m.name)
+            .filter(Boolean);
+        const restrictionText = restrictions.length > 0
+            ? `Avoid all foods and ingredients related to: ${restrictions.join(', ')}. Do not suggest anything that may contain these allergens or intolerances.`
+            : '';
         const medCtx = medicalInfo.length > 0
-            ? `Medical conditions: ${medicalInfo.map(m => `${m.name} (${m.severity})`).join(', ')}.`
+            ? `Medical conditions: ${medicalInfo.map(m => `${m.name} (${m.severity}, ${m.info_type})`).join(', ')}. ${restrictionText}`
             : '';
         const langInstr = this._getLangInstruction();
 
@@ -756,6 +772,10 @@ Return ONLY valid JSON without markdown:
             const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) throw new Error('No JSON in AI response');
             const plan = JSON.parse(jsonMatch[0]);
+            const planText = JSON.stringify(plan).toLowerCase();
+            if (restrictions.some(term => term && planText.includes(term.toLowerCase()))) {
+                throw new Error('AI generated plan contains restricted food items');
+            }
             plan.total_calories = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.calories||0), 0);
             plan.total_protein  = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.protein||0), 0);
             plan.total_fat      = ['breakfast','lunch','dinner','snack'].reduce((s,k) => s + (plan[k]?.fat||0), 0);
@@ -770,9 +790,9 @@ Return ONLY valid JSON without markdown:
             const snackCal = goal - breakfastCal - lunchCal - dinnerCal;
 
             const fallbacks = {
-                ru: { b:'Овсяная каша с ягодами', l:'Куриный салат', d:'Рыба с овощами', s:'Фрукты и орехи', r:['Пейте больше воды', 'Снизьте потребление сахара'] },
-                kz: { b:'Жидекті сұлы ботқасы', l:'Тауық еті салаты', d:'Балық пен көкөніс', s:'Жеміс пен жаңғақ', r:['Көбірек су ішіңіз', 'Қант тұтынуды азайтыңыз'] },
-                en: { b:'Oatmeal with berries', l:'Grilled chicken salad', d:'Fish with vegetables', s:'Fruits and nuts', r:['Drink more water', 'Reduce sugar intake'] },
+                ru: { b:'Омлет с овощами', l:'Куриный салат', d:'Запечённая рыба с брокколи', s:'Фрукты и орехи', r:['Пейте больше воды', 'Снизьте потребление сахара'] },
+                kz: { b:'Көкөністері бар омлет', l:'Тауық еті салаты', d:'Брокколиге қосылған балық', s:'Жеміс пен жаңғақ', r:['Көбірек су ішіңіз', 'Қант тұтынуды азайтыңыз'] },
+                en: { b:'Vegetable omelette', l:'Chicken salad', d:'Baked fish with vegetables', s:'Fruits and nuts', r:['Drink more water', 'Reduce sugar intake'] },
             };
             const fb = fallbacks[lang] || fallbacks.ru;
 

@@ -412,6 +412,47 @@ function setLang(lang) {
 // ── INIT ───────────────────────────────────────────────────────
 let currentTab = 'home';
 let authMode   = 'login';
+let homeViewDate = localStorage.getItem('homeViewDate') || new Date().toISOString().split('T')[0];
+let planViewDate = localStorage.getItem('planViewDate') || new Date().toISOString().split('T')[0];
+
+function dateOffset(base, days) {
+    const d = new Date(base + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+}
+
+function isSameDate(a, b) {
+    return a === b;
+}
+
+function formatDateLabel(date, lang) {
+    const locales = { ru: 'ru-RU', kz: 'kk-KZ', en: 'en-US' };
+    const d = new Date(date + 'T12:00:00');
+    return d.toLocaleDateString(locales[lang] || 'ru-RU', { weekday:'long', day:'numeric', month:'long' });
+}
+
+function setHomeViewDate(date) {
+    homeViewDate = date;
+    localStorage.setItem('homeViewDate', date);
+    if (currentTab === 'home') showTab('home');
+}
+
+function setPlanViewDate(date) {
+    planViewDate = date;
+    localStorage.setItem('planViewDate', date);
+    if (currentTab === 'plan') showTab('plan');
+}
+
+function changeHomeDate(offset) {
+    setHomeViewDate(dateOffset(homeViewDate, offset));
+}
+
+function changePlanDate(offset) {
+    const nextDate = dateOffset(planViewDate, offset);
+    const today = new Date().toISOString().split('T')[0];
+    if (offset > 0 && isSameDate(nextDate, today) === false && nextDate > today) return;
+    setPlanViewDate(nextDate);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
@@ -507,16 +548,22 @@ function showTab(tab) {
 
 // ── HOME ───────────────────────────────────────────────────────
 function showHome(c) {
-    const stats   = window.simpleState.getTodayStats();
-    const meals   = window.simpleState.getTodayMeals();
-    const user    = window.simpleState.userData;
-    const goal    = user?.daily_calorie_goal || 2000;
-    const pct     = Math.min((stats.calories / goal) * 100, 100).toFixed(1);
-    const over    = stats.calories > goal;
-    const trend   = window.simpleState.getWeightTrend();
-    const lang    = window.i18n.getLang();
-    const locales = { ru: 'ru-RU', kz: 'kk-KZ', en: 'en-US' };
-    const dateStr = new Date().toLocaleDateString(locales[lang] || 'ru-RU', { weekday:'long', day:'numeric', month:'long' });
+    const selectedDate = homeViewDate;
+    const meals = window.simpleState.getMealsForDate(selectedDate);
+    const stats = meals.reduce((s, m) => ({
+        calories: s.calories + (m.calories || 0),
+        protein:  s.protein  + (m.protein  || 0),
+        fat:      s.fat      + (m.fat      || 0),
+        carbs:    s.carbs    + (m.carbs    || 0)
+    }), { calories: 0, protein: 0, fat: 0, carbs: 0 });
+    const user = window.simpleState.userData;
+    const goal = user?.daily_calorie_goal || 2000;
+    const pct  = Math.min((stats.calories / goal) * 100, 100).toFixed(1);
+    const over = stats.calories > goal;
+    const trend = window.simpleState.getWeightTrend();
+    const lang  = window.i18n.getLang();
+    const dateStr = formatDateLabel(selectedDate, lang);
+    const today = new Date().toISOString().split('T')[0];
 
     let trendHtml = '';
     if (trend) {
@@ -525,17 +572,31 @@ function showHome(c) {
         trendHtml = `<p style="font-size:.8rem;margin-top:5px;color:${trendColor};">${trendLabel}: ${trend.change>0?'+':''}${trend.change.toFixed(1)} кг ${t('days7')}</p>`;
     }
 
+    const recentDays = Array.from({ length: 7 }, (_, i) => dateOffset(today, -i)).map(date => {
+        const dayMeals = window.simpleState.getMealsForDate(date);
+        return {
+            date,
+            calories: dayMeals.reduce((sum, m) => sum + (m.calories || 0), 0),
+            count: dayMeals.length
+        };
+    });
+
     c.innerHTML = `
     <div class="space-y">
         <div class="card">
-            <div class="flex-between">
+            <div class="day-nav">
+                <button class="day-nav-btn" onclick="changeHomeDate(-1)"><i data-lucide="chevron-left"></i></button>
+                <div class="day-nav-label">${dateStr}</div>
+                <button class="day-nav-btn" onclick="changeHomeDate(1)" ${isSameDate(selectedDate, today) ? 'disabled' : ''}><i data-lucide="chevron-right"></i></button>
+            </div>
+            <div class="flex-between" style="margin-top:1rem;">
                 <div>
-                    <p style="font-size:.75rem;color:var(--text-3);text-transform:capitalize;margin-bottom:2px;">${dateStr}</p>
+                    <p style="font-size:.75rem;color:var(--text-3);text-transform:capitalize;margin-bottom:2px;">${t('daily_progress')}</p>
                     <h2 style="font-size:1.3rem;font-weight:700;">${t('greeting')}, ${user?.name || '👋'}!</h2>
                     ${trendHtml}
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:1.75rem;font-weight:700;color:${over?'var(--red)':'var(--accent-h)'};">${Math.round(stats.calories)}</div>
+                    <div style="font-size:1.75rem;font-weight:700;color:${over ? 'var(--red)' : 'var(--accent-h)'};">${Math.round(stats.calories)}</div>
                     <div style="font-size:.7rem;color:var(--text-3);">${t('of_kcal')} ${goal} ${t('kcal')}</div>
                 </div>
             </div>
@@ -558,14 +619,13 @@ function showHome(c) {
             </div>
         </div>
 
-        ${meals.length > 0 ? `
         <div class="card">
-            <div class="flex-between" style="margin-bottom:.85rem;">
-                <span style="font-size:.9rem;font-weight:600;">${t('today')}</span>
+            <div class="flex-between" style="margin-bottom:.65rem;">
+                <span style="font-size:.9rem;font-weight:600;">${isSameDate(selectedDate, today) ? t('today') : dateStr}</span>
                 <span class="badge">${meals.length} ${t('records')}</span>
             </div>
             <div class="space-y-sm">
-                ${meals.map(m => `
+                ${meals.length > 0 ? meals.map(m => `
                 <div class="meal-row">
                     <div>
                         <div style="font-size:.9rem;font-weight:500;">${m.name}</div>
@@ -574,14 +634,28 @@ function showHome(c) {
                     <button class="meal-del" onclick="deleteMealAndRefresh('${m.id}')">
                         <i data-lucide="x" style="width:14px;height:14px;"></i>
                     </button>
-                </div>`).join('')}
+                </div>`).join('') : `
+                <div class="empty-state">
+                    <i data-lucide="utensils"></i>
+                    <p style="margin-bottom:.85rem;font-weight:500;">${t('no_meals')}</p>
+                    <button class="btn btn-primary" onclick="showTab('add')">${t('add_meal_btn')}</button>
+                </div>`}
             </div>
-        </div>` : `
-        <div class="card empty-state">
-            <i data-lucide="utensils"></i>
-            <p style="margin-bottom:.85rem;font-weight:500;">${t('no_meals')}</p>
-            <button class="btn btn-primary" onclick="showTab('add')">${t('add_meal_btn')}</button>
-        </div>`}
+        </div>
+
+        <div class="card">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:.85rem;">${t('days7')}</div>
+            <div class="space-y-sm">
+                ${recentDays.map(day => `
+                <button class="meal-row" style="width:100%;text-align:left;" onclick="setHomeViewDate('${day.date}')">
+                    <div>
+                        <div style="font-size:.85rem;font-weight:600;">${formatDateLabel(day.date, lang)}</div>
+                        <div style="font-size:.75rem;color:var(--text-3);">${Math.round(day.calories)} ${t('kcal')} · ${day.count} ${t('records')}</div>
+                    </div>
+                    <div style="font-size:.85rem;color:var(--accent);">${isSameDate(day.date, selectedDate) ? '✓' : ''}</div>
+                </button>`).join('')}
+            </div>
+        </div>
     </div>`;
 }
 
@@ -735,7 +809,8 @@ function updateCaloriePreview() {
     const prev = document.getElementById('caloriePreview');
     if (!prev) return;
     if (!cal) { prev.style.display = 'none'; return; }
-    const cur  = window.simpleState.getTodayStats().calories;
+    const selectedDate = homeViewDate || new Date().toISOString().split('T')[0];
+    const cur  = window.simpleState.getMealsForDate(selectedDate).reduce((sum, meal) => sum + (meal.calories || 0), 0);
     const goal = window.simpleState.userData?.daily_calorie_goal || 2000;
     const tot  = cur + cal;
     prev.style.display = 'block';
@@ -748,11 +823,10 @@ function updateCaloriePreview() {
 // ── PLAN ───────────────────────────────────────────────────────
 function showMealPlan(c) {
     const today  = new Date().toISOString().split('T')[0];
-    const plan   = window.simpleState.getMealPlanForDate(today);
+    const selectedDate = planViewDate || today;
+    const plan   = window.simpleState.getMealPlanForDate(selectedDate);
     const lang   = window.i18n.getLang();
-    const locales = { ru: 'ru-RU', kz: 'kk-KZ', en: 'en-US' };
-    const dateStr = new Date().toLocaleDateString(locales[lang] || 'ru-RU', { day:'numeric', month:'long', year:'numeric' });
-
+    const dateStr = formatDateLabel(selectedDate, lang);
     const colors = { breakfast:'var(--accent)', lunch:'var(--blue)', dinner:'var(--green)', snack:'var(--yellow)' };
     const labels = { breakfast: t('breakfast'), lunch: t('lunch'), dinner: t('dinner'), snack: t('snack') };
 
@@ -770,6 +844,14 @@ function showMealPlan(c) {
 
     c.innerHTML = `
     <div class="space-y">
+        <div class="card">
+            <div class="day-nav">
+                <button class="day-nav-btn" onclick="changePlanDate(-1)"><i data-lucide="chevron-left"></i></button>
+                <div class="day-nav-label">${dateStr}</div>
+                <button class="day-nav-btn" onclick="changePlanDate(1)" ${isSameDate(selectedDate, today) ? 'disabled' : ''}><i data-lucide="chevron-right"></i></button>
+            </div>
+        </div>
+
         <div class="flex-between">
             <h2 class="section-title">${t('meal_plan')}</h2>
             <button class="btn btn-primary" onclick="generateNewPlan()" id="genBtn">
@@ -897,8 +979,9 @@ async function generateNewPlan() {
         const plan = await window.simpleAI.generateMealPlan(user, med, prevData);
         if (!plan || plan.error) { showToast(plan?.error || t('plan_error'), 'error'); return; }
 
+        const planDate = planViewDate || new Date().toISOString().split('T')[0];
         const planData = {
-            plan_date:          new Date().toISOString().split('T')[0],
+            plan_date:          planDate,
             breakfast_name:     plan.breakfast?.name        || '',
             breakfast_calories: plan.breakfast?.calories    || 0,
             breakfast_protein:  plan.breakfast?.protein     || 0,
@@ -951,6 +1034,10 @@ async function updateProfile() {
         await window.addWeightProgress({
             weight, measured_date: new Date().toISOString().split('T')[0], note: 'Обновлён в профиле'
         });
+        const change = window.simpleState.getWeightChange(7);
+        if (change && change > 0.2) {
+            showToast(`Поздравляем! Вы сбросили ${change.toFixed(1)} кг за неделю.`, 'success');
+        }
     }
     if (r.success) showTab('home');
 }
@@ -1029,4 +1116,4 @@ Object.assign(window, {
 });
 </script>
 </body>
-</html>
+</html> 
