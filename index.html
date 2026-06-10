@@ -975,6 +975,7 @@ function showProfile(c) {
             </div>
             <p style="font-size:.75rem;color:var(--text-3);margin-bottom:.65rem;">${t('weight_note')}</p>
             <button class="btn btn-primary btn-full" onclick="updateProfile()">${t('save_changes')}</button>
+            <button class="btn btn-ghost btn-full" style="margin-top:.65rem;" onclick="showWeeklyAnalysisModal()">${t('analyze_week')}</button>
         </div>
 
         <div class="card">
@@ -1103,6 +1104,103 @@ async function updateProfile() {
     }
     if (r.success) showTab('home');
 }
+
+function showWeeklyAnalysisModal() {
+    const current = window.simpleState.userData?.weight || '';
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'analysisModal';
+    modal.innerHTML = `
+    <div class="modal-card">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">${t('weekly_analysis_title')}</h3>
+        <form id="weeklyAnalysisForm" class="space-y">
+            <div class="field">
+                <label>${t('current_weight_prompt')}</label>
+                <input type="number" step="0.01" min="1" id="weeklyCurrentWeight" value="${current}">
+            </div>
+            <p style="font-size:.8rem;color:var(--text-3);">${t('weekly_analysis_description')}</p>
+            <div class="grid-2" style="margin-top:.25rem;">
+                <button type="submit" class="btn btn-primary">${t('analysis_action')}</button>
+                <button type="button" onclick="closeAnalysisModal()" class="btn btn-ghost">${t('cancel')}</button>
+            </div>
+        </form>
+    </div>`;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => lucide.createIcons());
+
+    document.getElementById('weeklyAnalysisForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const value = parseFloat(document.getElementById('weeklyCurrentWeight').value);
+        if (!value || value <= 0) {
+            showToast(t('analysis_no_weight'), 'error');
+            return;
+        }
+        await runWeeklyAnalysis(value);
+    });
+}
+
+async function runWeeklyAnalysis(currentWeight) {
+    const user = window.simpleState.userData;
+    if (!user) return showToast('Пользователь не найден', 'error');
+    closeAnalysisModal();
+    const today = new Date();
+    const weekDates = Array.from({ length: 7 }, (_, i) => dateOffset(today.toISOString().split('T')[0], -i));
+    const weeklyMeals = weekDates.map(date => ({
+        date,
+        meals: window.simpleState.getMealsForDate(date)
+    }));
+    const analysis = await window.simpleAI.analyzeWeeklyProgress(currentWeight, weeklyMeals, user, window.simpleState.medicalInfo);
+    if (!analysis || analysis.error) {
+        showToast(analysis?.error || t('analysis_failed'), 'error');
+        return;
+    }
+
+    const diff = Number((currentWeight - (user.weight || currentWeight)).toFixed(2));
+    const updates = {};
+    if (diff !== 0) {
+        updates.weight = currentWeight;
+    }
+    if (analysis.suggested_calorie_goal && analysis.suggested_calorie_goal !== user.daily_calorie_goal) {
+        updates.daily_calorie_goal = analysis.suggested_calorie_goal;
+    }
+    if (Object.keys(updates).length > 0) {
+        const r = await window.updateUserData(updates);
+        if (r.success && updates.weight) {
+            await window.addWeightProgress({ weight: updates.weight, measured_date: new Date().toISOString().split('T')[0], note: t('weekly_analysis_note') });
+        }
+        if (r.success) showTab('profile');
+    }
+    showWeeklyAnalysisResultModal(analysis, diff, currentWeight);
+}
+
+function showWeeklyAnalysisResultModal(result, diff, currentWeight) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'analysisResultModal';
+    modal.innerHTML = `
+    <div class="modal-card">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">${t('weekly_analysis_title')}</h3>
+        <div style="font-size:.95rem;color:var(--text);line-height:1.6;margin-bottom:1rem;">${result.message || t('analysis_default_message')}</div>
+        ${Array.isArray(result.recommendations) && result.recommendations.length ? `
+        <div style="margin-bottom:1rem;">
+            <div style="font-size:.8rem;font-weight:700;color:var(--accent-h);margin-bottom:.5rem;">${t('recommendations')}</div>
+            <ul style="padding-left:1.1rem;color:var(--text-2);line-height:1.6;">
+                ${result.recommendations.map(rec => `<li style="margin-bottom:.4rem;">${rec}</li>`).join('')}
+            </ul>
+        </div>` : ''}
+        <div style="font-size:.8rem;color:var(--text-3);margin-bottom:1rem;">${tWithParams('analysis_changed_weight', { weight: currentWeight.toFixed(2), diff: diff.toFixed(2) })}</div>
+        <button class="btn btn-primary btn-full" onclick="closeAnalysisModal()">${t('close')}</button>
+    </div>`;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => lucide.createIcons());
+}
+
+function tWithParams(key, params) {
+    const text = t(key);
+    return Object.entries(params || {}).reduce((str, [k, v]) => str.replace(new RegExp(`\\{${k}\\}`, 'g'), v), text);
+}
+
+function closeAnalysisModal() { document.getElementById('analysisModal')?.remove(); document.getElementById('analysisResultModal')?.remove(); }
 
 function showAddMedicalForm() {
     const modal = document.createElement('div');

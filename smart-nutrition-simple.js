@@ -402,6 +402,17 @@ class I18n {
                 history_date: 'Дата',
                 history_calories: 'Калории',
                 view: 'Смотреть',
+                analyze_week: 'Анализ последней недели',
+                weekly_analysis_title: 'Анализ недели',
+                current_weight_prompt: 'Текущий вес (кг)',
+                weekly_analysis_description: 'AI изучит ваши последние 7 дней, калории и сравнит вес с текущим профилем.',
+                analysis_action: 'Анализировать',
+                analysis_no_weight: 'Введите корректный вес',
+                weekly_analysis_note: 'Анализ недели',
+                analysis_failed: 'Не удалось провести анализ',
+                analysis_default_message: 'Ваш недельный анализ готов.',
+                analysis_changed_weight: 'Новый вес: {weight} кг. Изменение: {diff} кг.',
+                close: 'Закрыть',
                 // Profile
                 profile: 'Профиль',
                 personal_data: 'Личные данные',
@@ -520,6 +531,17 @@ class I18n {
                 history_date: 'Күні',
                 history_calories: 'Калория',
                 view: 'Көру',
+                analyze_week: 'Апталық талдау',
+                weekly_analysis_title: 'Апталық талдау',
+                current_weight_prompt: 'Қазіргі салмақ (кг)',
+                weekly_analysis_description: 'AI соңғы 7 күнді, калорияларды және салмақты салыстырады.',
+                analysis_action: 'Талдау',
+                analysis_no_weight: 'Дұрыс салмақты енгізіңіз',
+                weekly_analysis_note: 'Апталық талдау',
+                analysis_failed: 'Талдауды орындау мүмкін болмады',
+                analysis_default_message: 'Апталық талдау дайын.',
+                analysis_changed_weight: 'Жаңа салмақ: {weight} кг. Өзгеріс: {diff} кг.',
+                close: 'Жабу',
                 profile: 'Профиль',
                 personal_data: 'Жеке деректер',
                 save_changes: 'Өзгерістерді сақтау',
@@ -635,6 +657,17 @@ class I18n {
                 history_date: 'Date',
                 history_calories: 'Calories',
                 view: 'View',
+                analyze_week: 'Analyze last week',
+                weekly_analysis_title: 'Weekly analysis',
+                current_weight_prompt: 'Current weight (kg)',
+                weekly_analysis_description: 'AI will review your last 7 days, calories and compare weight to profile.',
+                analysis_action: 'Analyze',
+                analysis_no_weight: 'Enter a valid weight',
+                weekly_analysis_note: 'Weekly analysis',
+                analysis_failed: 'Could not complete analysis',
+                analysis_default_message: 'Weekly analysis is ready.',
+                analysis_changed_weight: 'New weight: {weight} kg. Change: {diff} kg.',
+                close: 'Close',
                 profile: 'Profile',
                 personal_data: 'Personal Data',
                 save_changes: 'Save Changes',
@@ -819,6 +852,51 @@ Return ONLY valid JSON without markdown:
                 total_protein: Math.round(goal*0.25/4),
                 total_fat:     Math.round(goal*0.30/9),
                 total_carbs:   Math.round(goal*0.45/4)
+            };
+        }
+    }
+
+    async analyzeWeeklyProgress(currentWeight, weeklyMeals, userData, medicalInfo = []) {
+        const startWeight = userData?.weight || currentWeight;
+        const goal = userData?.daily_calorie_goal || 2000;
+        const restrictions = medicalInfo
+            .filter(m => ['allergy', 'intolerance'].includes(m.info_type))
+            .map(m => m.name)
+            .filter(Boolean);
+        const restrictionText = restrictions.length
+            ? `Avoid foods and ingredients related to: ${restrictions.join(', ')}.`
+            : '';
+        const mealLines = weeklyMeals.map(day => {
+            const total = day.meals.reduce((sum, meal) => sum + (meal.calories || 0), 0);
+            const names = day.meals.map(meal => meal.name).filter(Boolean).join(', ') || 'no meals';
+            return `${day.date}: ${total} kcal, ${names}`;
+        }).join('\n');
+
+        const prompt = `You are a nutrition coach. The user started the week at ${startWeight} kg and now reports ${currentWeight} kg. Their current daily calorie goal is ${goal} kcal. ${restrictionText} Review these last 7 days of meals and calories exactly as given. Output ONLY valid JSON without markdown using keys: message, recommendations, suggested_calorie_goal.\nWeekly meals summary:\n${mealLines}\nIf weight increased, recommend stronger diet and lower the calorie goal slightly. If weight decreased, congratulate and keep or adjust the goal moderately.`;
+
+        try {
+            const response = await this._withFallback(() => ({ contents: [{ parts: [{ text: prompt }] }] }));
+            const jsonText = typeof response === 'object' ? JSON.stringify(response) : response;
+            const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('No JSON in AI response');
+            return JSON.parse(jsonMatch[0]);
+        } catch (error) {
+            console.error('Weekly analysis failed:', error);
+            const delta = Number((currentWeight - startWeight).toFixed(2));
+            const lostMsg = delta < 0
+                ? `Бро, ты сбросил ${Math.abs(delta).toFixed(1)} кг за неделю.`
+                : delta > 0
+                    ? `Бро, ты набрал ${delta.toFixed(1)} кг за неделю.`
+                    : 'Вес остался стабильным за неделю.';
+            const recommendations = delta > 0.3
+                ? ['Уменьшите калорийность на 150-200 ккал.', 'Добавьте больше белка и овощей.', 'Увеличьте активность.']
+                : delta < -0.3
+                    ? ['Продолжайте текущую стратегию.', 'Смотрите за белком и водой.', 'Поддерживайте цель калорий.']
+                    : ['Вес стабилен — продолжайте наблюдать.', 'Сбалансируйте питание и активность.'];
+            return {
+                message: lostMsg,
+                recommendations,
+                suggested_calorie_goal: delta > 0.3 ? Math.max(1200, goal - 150) : goal
             };
         }
     }
