@@ -120,6 +120,52 @@
         .nav-btn svg { width: 18px; height: 18px; }
         .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+        .day-nav {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: .75rem; background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 999px; padding: .45rem .75rem;
+        }
+        .day-nav-btn {
+            width: 38px; height: 38px; display: inline-flex; align-items: center;
+            justify-content: center; border-radius: 50%; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text); cursor: pointer;
+            transition: all .2s;
+        }
+        .day-nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+        .day-nav-btn:disabled { opacity: .45; cursor: not-allowed; }
+        .day-nav-label {
+            flex: 1; min-width: 0; text-align: center; font-size: .95rem;
+            font-weight: 700; color: var(--text);
+        }
+        .day-picker {
+            display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem;
+            overflow-x: auto; padding-bottom: .1rem;
+        }
+        .day-pill {
+            border: 1px solid var(--border); background: var(--surface2);
+            border-radius: 999px; padding: .75rem .75rem; text-align: center;
+            cursor: pointer; transition: all .2s; font-size: .78rem;
+            color: var(--text-2); min-width: 0;
+        }
+        .day-pill:hover, .day-pill.active {
+            border-color: var(--accent); background: var(--surface); color: var(--accent);
+        }
+        .plan-history-header, .plan-history-row {
+            display: grid; grid-template-columns: 2fr 1fr auto; gap: .75rem;
+            align-items: center;
+        }
+        .plan-history-header {
+            color: var(--text-3); font-size: .75rem; text-transform: uppercase;
+            letter-spacing: .05em; padding: .8rem 0; border-bottom: 1px solid var(--border);
+        }
+        .plan-history-row { padding: .75rem 0; border-bottom: 1px solid var(--border); }
+        .plan-history-row:last-child { border-bottom: none; }
+        .plan-history-row button {
+            border: none; background: none; color: var(--accent); cursor: pointer;
+            font-weight: 700; padding: 0;
+        }
+        .plan-history-row button:hover { text-decoration: underline; }
+
         .prog-track { background: var(--surface2); border-radius: 99px; height: 8px; overflow: hidden; }
         .prog-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width .6s cubic-bezier(.4,0,.2,1); }
         .prog-fill.over { background: linear-gradient(90deg, var(--red), var(--yellow)); }
@@ -425,10 +471,13 @@ function isSameDate(a, b) {
     return a === b;
 }
 
-function formatDateLabel(date, lang) {
+function formatDateLabel(date, lang, short = false) {
     const locales = { ru: 'ru-RU', kz: 'kk-KZ', en: 'en-US' };
     const d = new Date(date + 'T12:00:00');
-    return d.toLocaleDateString(locales[lang] || 'ru-RU', { weekday:'long', day:'numeric', month:'long' });
+    const options = short
+        ? { weekday:'short', day:'numeric', month:'short' }
+        : { weekday:'long', day:'numeric', month:'long' };
+    return d.toLocaleDateString(locales[lang] || 'ru-RU', options);
 }
 
 function setHomeViewDate(date) {
@@ -645,14 +694,11 @@ function showHome(c) {
 
         <div class="card">
             <div style="font-size:.9rem;font-weight:600;margin-bottom:.85rem;">${t('days7')}</div>
-            <div class="space-y-sm">
+            <div class="day-picker">
                 ${recentDays.map(day => `
-                <button class="meal-row" style="width:100%;text-align:left;" onclick="setHomeViewDate('${day.date}')">
-                    <div>
-                        <div style="font-size:.85rem;font-weight:600;">${formatDateLabel(day.date, lang)}</div>
-                        <div style="font-size:.75rem;color:var(--text-3);">${Math.round(day.calories)} ${t('kcal')} · ${day.count} ${t('records')}</div>
-                    </div>
-                    <div style="font-size:.85rem;color:var(--accent);">${isSameDate(day.date, selectedDate) ? '✓' : ''}</div>
+                <button class="day-pill ${isSameDate(day.date, selectedDate) ? 'active' : ''}" onclick="setHomeViewDate('${day.date}')">
+                    <div style="font-weight:700;">${formatDateLabel(day.date, lang, true)}</div>
+                    <div style="font-size:.72rem;color:var(--text-3);margin-top:4px;">${Math.round(day.calories)} ${t('kcal')}</div>
                 </button>`).join('')}
             </div>
         </div>
@@ -829,6 +875,7 @@ function showMealPlan(c) {
     const dateStr = formatDateLabel(selectedDate, lang);
     const colors = { breakfast:'var(--accent)', lunch:'var(--blue)', dinner:'var(--green)', snack:'var(--yellow)' };
     const labels = { breakfast: t('breakfast'), lunch: t('lunch'), dinner: t('dinner'), snack: t('snack') };
+    const recentPlans = window.simpleState.mealPlans.slice(0, 7);
 
     const block = (key) => plan?.[`${key}_name`] ? `
         <div style="border-left:3px solid ${colors[key]};padding:.6rem 0 .6rem .9rem;">
@@ -892,6 +939,20 @@ function showMealPlan(c) {
                 </button>
             </div>`}
         </div>
+        ${recentPlans.length ? `
+        <div class="card">
+            <div class="plan-history-header">
+                <span>${t('history_date')}</span>
+                <span>${t('history_calories')}</span>
+                <span></span>
+            </div>
+            ${recentPlans.map(p => `
+            <div class="plan-history-row">
+                <span>${formatDateLabel(p.plan_date, lang)}</span>
+                <span>${Math.round(p.total_calories)} ${t('kcal')}</span>
+                <button onclick="setPlanViewDate('${p.plan_date}')">${t('view')}</button>
+            </div>`).join('')}
+        </div>` : ''}
     </div>`;
 }
 
@@ -948,9 +1009,9 @@ function showProfile(c) {
             <div>
                 <div style="font-size:.875rem;margin-bottom:.65rem;">${t('language')}</div>
                 <div class="lang-card-row">
-                    <button class="lang-card-btn ${lang==='ru'?'active':''}" onclick="setLang('ru')">🇷🇺 RU</button>
-                    <button class="lang-card-btn ${lang==='kz'?'active':''}" onclick="setLang('kz')">🇰🇿 KZ</button>
-                    <button class="lang-card-btn ${lang==='en'?'active':''}" onclick="setLang('en')">🇬🇧 EN</button>
+                    <button class="lang-card-btn ${lang==='ru'?'active':''}" onclick="setLang('ru')"><span class="lang-flag">🇷🇺</span><span class="lang-code">RU</span></button>
+                    <button class="lang-card-btn ${lang==='kz'?'active':''}" onclick="setLang('kz')"><span class="lang-flag">🇰🇿</span><span class="lang-code">KZ</span></button>
+                    <button class="lang-card-btn ${lang==='en'?'active':''}" onclick="setLang('en')"><span class="lang-flag">🇬🇧</span><span class="lang-code">EN</span></button>
                 </div>
             </div>
         </div>
