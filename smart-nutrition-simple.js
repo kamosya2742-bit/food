@@ -9,7 +9,7 @@ class SimpleState {
         this.weightProgress = [];
 
         this.initSupabase();
-        this.loadFromStorage();
+        this.ready = this.loadFromStorage();
     }
 
     initSupabase() {
@@ -22,11 +22,11 @@ class SimpleState {
         this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
 
-    loadFromStorage() {
+    async loadFromStorage() {
         const theme = localStorage.getItem('theme') || 'dark';
         if (document.body) document.body.setAttribute('data-theme', theme);
         this.currentTheme = theme;
-        this.loadEnvironmentVariables();
+        return this.loadEnvironmentVariables();
     }
 
     async loadEnvironmentVariables() {

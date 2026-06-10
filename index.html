@@ -506,6 +506,7 @@ function changePlanDate(offset) {
 document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
     applyI18n();
+    if (window.simpleState?.ready) await window.simpleState.ready;
     const has = window.simpleState.checkLocalSession();
     if (has) {
         await Promise.allSettled([
